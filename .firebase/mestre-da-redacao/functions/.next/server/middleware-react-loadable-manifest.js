@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"app/professor/dashboard/correcoes/page.tsx -> firebase/storage":{"id":9542,"files":[]}}';
