@@ -21,6 +21,30 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
     
+    match /passwordResets/{tokenId} {
+      // Permitir criação de tokens de reset sem autenticação
+      allow create: if request.resource.data.keys().hasAll(['email', 'token', 'expiresAt', 'createdAt', 'used']) &&
+        request.resource.data.email is string &&
+        request.resource.data.token is string &&
+        request.resource.data.used == false;
+      // Permitir leitura e atualização sem autenticação para APIs do servidor
+      allow read, update: if true;
+    }
+    
+    match /logs/{logId} {
+      // Permitir escrita de logs para usuários autenticados
+      allow write: if request.auth != null;
+      // Permitir escrita de logs críticos mesmo sem autenticação (com limitações)
+      allow write: if request.auth == null && 
+        request.resource.data.level in ['error', 'critical'] &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() < 500;
+      // Apenas admins podem ler logs
+      allow read: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
     match /{document=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;

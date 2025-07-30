@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
@@ -31,6 +31,14 @@ export default function Temas() {
   })
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
+  // Step de verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    console.log('Página de temas do professor carregada')
+  }, [])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -39,6 +47,7 @@ export default function Temas() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files)
+      console.log('Arquivos selecionados para tema:', newFiles.map(f => f.name))
       setFormData(prev => ({
         ...prev,
         files: [...prev.files, ...newFiles]
@@ -47,6 +56,8 @@ export default function Temas() {
   }
 
   const removeFile = (index: number) => {
+    const removedFile = formData.files[index]
+    console.log('Removendo arquivo:', removedFile?.name)
     setFormData(prev => ({
       ...prev,
       files: prev.files.filter((_, i) => i !== index)
@@ -55,17 +66,26 @@ export default function Temas() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('Criando novo tema:', {
+      title: formData.title,
+      category: formData.category,
+      files_count: formData.files.length
+    })
+    
     setUploadingFiles(true)
 
     try {
       // Upload dos arquivos
       const fileUrls = await Promise.all(
         formData.files.map(async (file) => {
+          console.log('Fazendo upload do arquivo:', file.name)
           const storageRef = ref(storage, `essayThemes/${Date.now()}-${file.name}`)
           await uploadBytes(storageRef, file)
           return getDownloadURL(storageRef)
         })
       )
+
+      console.log('Upload concluído, criando tema no Firestore')
 
       // Criar o tema no Firestore
       await addDoc(collection(db, "essayThemes"), {
@@ -75,6 +95,7 @@ export default function Temas() {
         updatedAt: serverTimestamp()
       })
 
+      console.log('Tema criado com sucesso')
       toast({
         title: "Tema criado com sucesso!",
         description: "O novo tema foi adicionado à plataforma.",
@@ -105,6 +126,7 @@ export default function Temas() {
 
   const handleToggleActive = async (themeId: string, currentActive: boolean) => {
     try {
+      console.log('Alterando status do tema:', themeId, 'para:', !currentActive)
       await updateDoc(doc(db, "essayThemes", themeId), {
         active: !currentActive,
         updatedAt: serverTimestamp()

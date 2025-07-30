@@ -22,9 +22,12 @@ async function processarArquivos() {
   for (const arquivo of arquivos) {
     const filePath = path.join(pastaPropostas, arquivo);
 
-    // Extrair título
+    // Extrair título e código do ano
     const nomeSemExt = path.basename(arquivo, '.pdf');
-    const titulo = nomeSemExt.replace(/^\d+\s*-\s*/, '');
+    // Regex: remove número e hífen do início, e código do ano do final
+    const titulo = nomeSemExt.replace(/^\d+\s*-\s*/, '').replace(/\s*-\s*\d{4}-\d$/, '');
+    const yearCodeMatch = nomeSemExt.match(/(\d{4}-\d)$/);
+    const yearCode = yearCodeMatch ? yearCodeMatch[1] : '';
 
     // Upload para o Storage
     const storagePath = `proposals/materials/${arquivo}`;
@@ -38,12 +41,13 @@ async function processarArquivos() {
     // Criar documento no Firestore
     await db.collection('essayThemes').add({
       title: titulo,
-      category: 'ENEM_MESTRE',
+      category: 'ENEM_PASSADO',
       tags: [],
       file: {
         name: arquivo,
         url: url
       },
+      yearCode: yearCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       active: true

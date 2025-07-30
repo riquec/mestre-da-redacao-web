@@ -1,0 +1,733 @@
+# 🎯 MESTRE DA REDAÇÃO - ESPECIFICAÇÕES COMPLETAS DO PROJETO
+
+Este documento contém todas as especificações técnicas e de negócio da plataforma "Mestre da Redação", uma aplicação educacional para correção de redações do ENEM.
+
+## 📋 VISÃO GERAL DO NEGÓCIO
+
+### Modelo de Negócio
+- **Plataforma B2C/B2B**: Correção de redações para estudantes individuais e instituições parceiras
+- **Público-alvo**: Estudantes preparando para ENEM, vestibulandos, escolas parceiras
+- **Monetização**: Assinaturas mensais com diferentes níveis de acesso
+- **Diferencial**: Correção humana por professores qualificados + materiais didáticos
+
+### Stakeholders
+1. **Alunos**: Usuários finais que enviam redações
+2. **Professores**: Corretores especializados em redação ENEM
+3. **Instituições Parceiras**: Escolas/cursos com acesso em lote
+4. **Administradores**: Gestão da plataforma
+
+## 🏗️ ARQUITETURA TÉCNICA
+
+### Stack Principal
+- **Frontend**: Next.js 14 (App Router) + TypeScript
+- **Backend**: Firebase (Firestore + Storage + Authentication + Functions)
+- **UI Library**: Radix UI + Tailwind CSS + shadcn/ui
+- **Estado**: Context API (Auth) + Custom Hooks
+- **Deploy**: Firebase Hosting
+
+### Estrutura de Pastas
+```
+app/
+├── dashboard/           # Área do aluno
+├── professor/          # Área do professor
+├── api/               # API Routes do Next.js
+├── hooks/             # Custom hooks
+├── lib/               # Utilities e configurações
+├── login/             # Autenticação
+└── register/          # Cadastro
+
+components/
+├── ui/                # shadcn/ui components
+├── auth-route.tsx     # Proteção de rotas aluno
+├── professor-route.tsx # Proteção de rotas professor
+└── subscription-guard.tsx # Proteção baseada em assinatura
+
+lib/
+├── firebase.ts        # Configuração Firebase
+├── types.ts          # Tipos TypeScript
+├── auth-context.tsx  # Context de autenticação
+└── utils.ts          # Utilitários
+
+hooks/
+├── use-auth.ts       # Hook de autenticação
+├── use-subscription.ts # Hook de assinatura
+├── use-essays.ts     # Hook de redações
+└── [outros hooks]    # Hooks específicos
+```
+
+## 🔐 SISTEMA DE AUTENTICAÇÃO
+
+### Roles de Usuário
+```typescript
+type UserRole = 'student' | 'professor'
+
+interface User {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  createdAt: Timestamp
+  lastLogin: Timestamp
+  couponUsed?: string
+  partnerId?: string
+}
+```
+
+### Fluxo de Autenticação
+1. **Cadastro**: Firebase Auth + criação de documento no Firestore
+2. **Login**: Validação + redirecionamento baseado em role
+3. **Proteção de Rotas**: Components AuthRoute e ProfessorRoute
+4. **Sessão**: Persistência automática via Firebase Auth
+
+### Regras de Acesso
+- **Alunos**: Dashboard, envio de redações, visualização de correções
+- **Professores**: Dashboard admin, correção de redações, gestão de materiais
+- **Leitura**: Pública para themes/proposals, autenticada para essays/users
+- **Escrita**: Apenas usuários autenticados, users apenas próprio documento
+
+## 💰 SISTEMA DE ASSINATURAS
+
+### Tipos de Assinatura
+```typescript
+type SubscriptionType = 'free' | 'avulsa' | 'mestre' | 'private' | 'partner'
+
+interface Subscription {
+  id: string
+  userId: string
+  type: SubscriptionType
+  status: 'active' | 'cancelled'
+  tokens: {
+    available: number
+    unlimited: boolean
+  }
+  partnerInfo?: {
+    institutionId: string
+    institutionName: string
+    contractEndDate: Timestamp
+  }
+  privateInfo?: {
+    teacherId: string
+    teacherName: string
+  }
+}
+```
+
+### Planos Disponíveis
+1. **Free (R$ 0,00)**: 0 correções, acesso apenas às propostas de redação
+2. **Avulsa (R$ 15,00)**: 1 correção, acesso às propostas de redação
+3. **Mestre (R$ 70,00/mês)**: 15 correções/mês, acesso completo (propostas, videoaulas, materiais)
+4. **Private**: Aluno particular de professor, correções ilimitadas
+5. **Partner**: Aluno de instituição parceira, correções ilimitadas
+
+### Lógica de Tokens
+- **Planos Pagos**: Tokens mensais finitos
+- **Private/Partner**: Tokens ilimitados (unlimited: true)
+- **Consumo**: 1 token por redação enviada
+- **Renovação**: Automática todo mês (não implementado ainda)
+
+## 📝 SISTEMA DE REDAÇÕES
+
+### Estrutura de Dados
+```typescript
+interface Essay {
+  id: string
+  userId: string
+  files: { name: string; url: string }[]
+  themeId: string
+  status: 'pending' | 'done' | 'rejected'
+  submittedAt: Timestamp
+  correctedAt?: Timestamp
+  correction?: {
+    score: {
+      coesaoTextual: number        // 0-200
+      compreensaoProposta: number  // 0-200
+      dominioNormaCulta: number    // 0-200
+      propostaIntervencao: number  // 0-200
+      selecaoArgumentos: number    // 0-200
+      total: number                // 0-1000
+    }
+    status: 'pending' | 'done'
+    feedback?: string
+    audioFileUrl?: string
+    correctionFileUrl?: string
+    assignedTo?: string
+    assignedAt?: Timestamp
+    completedAt?: Timestamp
+  }
+}
+```
+
+### Fluxo de Correção
+1. **Envio**: Aluno seleciona tema + envia arquivo PDF
+2. **Fila**: Redação entra na fila de correções pendentes
+3. **Atribuição**: Professor seleciona redação para corrigir
+4. **Correção**: Professor avalia 5 competências + feedback textual/áudio
+5. **Entrega**: Aluno recebe nota + comentários + arquivo corrigido
+
+### Temas de Redação
+- **Fonte**: Propostas históricas do ENEM (2009-2024)
+- **Armazenamento**: Collection `essayThemes` + Storage para PDFs
+- **Categorias**: ENEM_PASSADO, SIMULADO, PERSONALIZADO
+- **Ativação**: Temas podem ser ativados/desativados
+
+## 🎓 SISTEMA DE VIDEOAULAS
+
+### Estrutura de Dados
+```typescript
+interface Lesson {
+  id: string
+  title: string
+  description: string
+  videoUrl: string
+  duration: number  // em segundos
+  createdAt: Timestamp
+  views: number
+  active: boolean
+}
+
+interface LessonProgress {
+  id: string
+  userId: string
+  lessonId: string
+  progress: number      // 0-100
+  lastWatched: Timestamp
+  completed: boolean
+}
+```
+
+### Funcionalidades
+- **Upload**: Professores fazem upload de vídeos
+- **Duração**: Extraída automaticamente do arquivo
+- **Progresso**: Acompanhamento individual por aluno
+- **Visualização**: Player HTML5 nativo
+- **Marcação**: Alunos podem marcar como "assistida"
+
+## 📚 SISTEMA DE MATERIAIS DIDÁTICOS
+
+### Estrutura Hierárquica
+```typescript
+interface Material {
+  id: string
+  type: 'folder' | 'file'
+  name: string
+  parentId: string | null  // null = pasta raiz
+  createdAt: Timestamp
+  updatedAt: Timestamp
+  file?: {               // apenas para type: 'file'
+    name: string
+    url: string
+    size: number
+    type: string
+  }
+}
+```
+
+### Funcionalidades
+- **Navegação**: Sistema de pastas recursivo
+- **Upload**: Apenas professores, arquivos PDF
+- **Busca**: Por nome do material
+- **Visualização**: Iframe para PDFs + download
+- **Breadcrumbs**: Navegação hierárquica
+
+## 👨‍🏫 ÁREA DO PROFESSOR
+
+### Dashboard Principal
+- **Estatísticas**: Correções pendentes/concluídas
+- **Acesso Rápido**: Links para principais funcionalidades
+- **Navegação**: Sidebar responsiva com menu principal
+
+### Funcionalidades Específicas
+1. **Gestão de Videoaulas**: CRUD completo de aulas
+2. **Correção de Redações**: Fila de correções + interface de avaliação
+3. **Material Didático**: Upload e organização de materiais
+4. **Gestão de Alunos**: Visualização + alteração de status de assinatura
+5. **Propostas**: Gestão de temas de redação (futuro)
+6. **Relatórios**: Analytics de performance (futuro)
+
+### Sistema de Correção
+- **Interface**: Visualizador PDF + formulário de avaliação
+- **Competências**: 5 critérios do ENEM (0-200 cada)
+- **Feedback**: Texto obrigatório + áudio opcional + PDF marcado
+- **Upload**: Storage para arquivos de correção
+- **Rollback**: Limpeza automática em caso de erro
+
+### Gestão de Alunos (Professor)
+- **Interface Moderna**: Cards visuais com informações completas dos alunos
+- **Estatísticas Avançadas**: Dashboard com métricas de uso e distribuição por plano
+- **Filtros Inteligentes**: Busca por nome/email, filtros por plano, status e atividade
+- **Ações Rápidas**: Alteração de plano diretamente nos cards
+- **Modal de Detalhes**: Informações completas do aluno com estatísticas de uso
+- **Log de Mudanças**: Registro automático de alterações de plano
+- **Responsivo**: Interface adaptada para mobile e desktop
+
+#### Funcionalidades Implementadas
+1. **Visualização em Cards**: Cada aluno em um card com avatar, nome, email e estatísticas
+2. **Estatísticas Visuais**: Total de alunos, distribuição por plano, alunos ativos/inativos
+3. **Filtros Avançados**: Busca, filtros por plano, status de assinatura e atividade
+4. **Alteração de Plano**: Interface intuitiva para mudar plano do aluno
+5. **Configuração de Tokens**: Controle granular de tokens para alunos avulsos
+6. **Modal Avançado**: Interface completa com seleção de plano, tokens extras e motivo
+7. **Criação de Assinaturas**: Suporte para alunos sem assinatura prévia
+8. **Log de Mudanças**: Registro completo de alterações com motivo e professor responsável
+9. **Detalhes Completos**: Modal com informações pessoais, estatísticas e ações
+10. **Loading States**: Skeleton loading durante carregamento
+11. **Toast Notifications**: Feedback visual para todas as ações
+12. **Logging**: Registro de todas as ações para auditoria
+
+#### Componentes Criados
+- `StudentCard`: Card individual do aluno com ações rápidas
+- `StudentsStats`: Dashboard de estatísticas gerais
+- `PlanDistribution`: Gráfico de distribuição por plano
+- `StudentsFilters`: Interface de filtros avançados
+- `PlanChangeModal`: Modal completo para alteração de planos
+- `useProfessorStudents`: Hook customizado para gestão de dados
+
+#### Regras de Negócio Implementadas
+- **Planos Disponíveis**: free, avulsa, mestre, private, partner
+- **Tokens Configuráveis**: Alunos avulsos podem receber tokens extras (0-50)
+- **Planos Ilimitados**: private e partner têm tokens ilimitados
+- **Criação Automática**: Assinaturas são criadas automaticamente se não existirem
+- **Log de Auditoria**: Todas as mudanças são registradas com motivo e professor responsável
+- **Validações**: Interface previne mudanças desnecessárias e valida dados
+
+## 👨‍🎓 ÁREA DO ALUNO
+
+### Dashboard Principal
+- **Status da Assinatura**: Plano atual + tokens disponíveis
+- **Redações Recentes**: Status de correção + notas
+- **Aulas Recentes**: Progresso de visualização
+- **Acesso Rápido**: Enviar nova redação, ver correções
+
+### Funcionalidades Específicas
+1. **Envio de Redações**: Seleção de tema + upload de arquivo
+2. **Acompanhamento**: Status das redações em correção
+3. **Visualização de Correções**: Notas + feedback + downloads
+4. **Videoaulas**: Catálogo + player + progresso
+5. **Material Didático**: Acesso somente leitura
+6. **Gestão de Assinatura**: Upgrade/downgrade de planos
+
+## 🗄️ ESTRUTURA DO BANCO DE DADOS (FIRESTORE)
+
+### Collections Principais
+```
+users/                  # Perfis de usuários
+├── {userId}
+├── role: 'student' | 'professor'
+└── [dados do User]
+
+subscriptions/          # Assinaturas dos usuários
+├── {subscriptionId}
+├── userId: string
+└── [dados do Subscription]
+
+essays/                 # Redações enviadas
+├── {essayId}
+├── userId: string
+├── themeId: string
+└── [dados do Essay]
+
+essayThemes/           # Temas de redação
+├── {themeId}
+├── title: string
+├── category: string
+└── file: {name, url}
+
+lessons/               # Videoaulas
+├── {lessonId}
+├── title: string
+├── videoUrl: string
+└── [dados do Lesson]
+
+lessonProgress/        # Progresso das aulas
+├── {progressId}
+├── userId: string
+├── lessonId: string
+└── [dados do LessonProgress]
+
+materials/             # Material didático
+├── {materialId}
+├── type: 'folder' | 'file'
+├── parentId: string | null
+└── [dados do Material]
+```
+
+### Padrões de Nomenclatura
+- **IDs**: Gerados automaticamente pelo Firestore
+- **Referencias**: Usar doc refs quando apropriado
+- **Timestamps**: Sempre serverTimestamp() para consistência
+- **Soft Delete**: Flag `active: boolean` ao invés de deletar
+
+## 📁 FIREBASE STORAGE
+
+### Estrutura de Pastas
+```
+/essays/
+├── {userId}/
+└── {timestamp}-{filename}
+
+/corrections/
+├── {essayId}/
+├── audio-feedback
+├── correction-pdf
+└── marked-image
+
+/lessons/
+└── {timestamp}-{filename}
+
+/materials/
+└── {timestamp}-{filename}
+
+/proposals/
+├── materials/
+└── examples/
+```
+
+### Regras de Segurança
+- **Leitura**: Pública para todos os arquivos
+- **Escrita**: Apenas usuários autenticados
+- **Organização**: Por tipo de conteúdo + usuário quando relevante
+
+## 🔧 PADRÕES DE DESENVOLVIMENTO
+
+### Convenções de Código
+- **TypeScript**: Tipagem estrita obrigatória
+- **Naming**: camelCase para JS, PascalCase para componentes
+- **Imports**: Absolutos com alias `@/`
+- **Error Handling**: Try/catch com toast notifications
+- **Loading States**: Skeleton/spinner durante operações assíncronas
+
+### Estrutura de Componentes
+```typescript
+// Padrão de página
+'use client'
+export default function ComponentName() {
+  // 1. Hooks de estado
+  // 2. Hooks customizados  
+  // 3. Effects
+  // 4. Handlers
+  // 5. Render condicional
+  // 6. JSX principal
+}
+```
+
+### Custom Hooks
+- **Nomenclatura**: `use[Funcionalidade]`
+- **Retorno**: Object com `{data, loading, error}` quando aplicável
+- **Dependencies**: Array de dependências explícito no useEffect
+- **Cleanup**: Cleanup functions quando necessário
+
+### Tratamento de Erros
+- **Firebase**: Captura e tradução de erros
+- **UI**: Toast notifications via Sonner
+- **Logging**: Console.error com contexto
+- **Fallbacks**: Loading states e mensagens de erro gracious
+
+## 🚀 DEPLOY E CONFIGURAÇÃO
+
+### Configuração Firebase
+```javascript
+// firebase.json
+{
+  "hosting": {
+    "source": ".",
+    "frameworksBackend": {"region": "us-central1"},
+    "cleanUrls": true,
+    "headers": [/* CORS headers */]
+  },
+  "firestore": {"rules": "firestore.rules"},
+  "storage": {"rules": "storage.rules"}
+}
+```
+
+### Scripts NPM
+```json
+{
+  "dev": "next dev",
+  "build": "next build", 
+  "firebase-build": "pnpm install && pnpm run build",
+  "deploy": "firebase deploy"
+}
+```
+
+### Variáveis de Ambiente
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
+```
+
+## 🎯 FUNCIONALIDADES IMPLEMENTADAS
+
+### ✅ Completas
+- [x] Sistema de autenticação com roles
+- [x] Dashboard do aluno e professor
+- [x] Sistema de assinaturas com múltiplos planos
+- [x] Envio e correção de redações
+- [x] Sistema de videoaulas com progresso
+- [x] Material didático hierárquico
+- [x] Upload de arquivos com validação
+- [x] Interface responsiva e moderna
+- [x] Gestão de alunos pelo professor (INTERFACE MODERNA)
+- [x] Sistema de busca e filtros
+- [x] Chat aluno-professor com redação opcional
+
+### 🚧 Em Desenvolvimento
+- [ ] Sistema de notificações
+- [ ] Chat entre aluno e professor
+- [ ] Relatórios e analytics
+- [ ] Sistema de cupons/promoções
+- [ ] API de pagamentos
+- [ ] Renovação automática de assinaturas
+
+### 📋 Backlog
+- [ ] Sistema de mentoria individual
+- [ ] Banco de redações corrigidas
+- [ ] Simulados cronometrados
+- [ ] Gamificação (badges, rankings)
+- [ ] App mobile
+- [ ] Integração com WhatsApp
+- [ ] Sistema de afiliados
+
+## 🐛 PROBLEMAS CONHECIDOS
+
+### Técnicos
+- [ ] TypeScript build errors ignorados (temporário)
+- [ ] ESLint desabilitado durante build
+- [ ] Alguns componentes sem proper error boundaries
+- [ ] Falta validação de schema Zod em formulários
+
+### UX/UI
+- [ ] Loading states inconsistentes
+- [ ] Feedback de upload poderia ser melhor
+- [ ] Mobile responsiveness em algumas páginas
+- [ ] Acessibilidade não implementada completamente
+
+### Performance
+- [ ] Imagens não otimizadas
+- [ ] Bundle size não analisado
+- [ ] Queries Firestore poderiam usar pagination
+- [ ] Storage downloads sem cache
+
+### 🔧 CORREÇÕES RECENTES
+
+#### ✅ Firebase Configuration (Corrigido Completamente)
+**Problema**: Erros no console relacionados a Firebase Analytics e API keys inválidas
+- `FirebaseError: Analytics: Dynamic config fetch failed`
+- `FirebaseError: Firebase: Error (auth/invalid-api-key)`
+- `FirebaseError: Installations: Generate Auth Token request failed`
+
+**Causa Raiz Identificada**:
+- API Key desatualizada no .env.local
+- measurementId ausente para Firebase Analytics
+- Configuração incompleta do Analytics
+
+**Solução Implementada**:
+- **API Key atualizada**: De `AIzaSyC5wGKgU8RdKKjP5cGJjrYLGPXHfzBwAOY` para `AIzaSyABZJxTb4i_SDIBE-j530N1cGBwmkB054`
+- **measurementId adicionado**: `G-37KFKM8TSH` para Firebase Analytics
+- Validação de variáveis de ambiente obrigatórias e opcionais
+- Tratamento de erros específicos para cada serviço Firebase
+- Analytics inicializado apenas se measurementId estiver presente
+- Logs detalhados para debug de configuração
+- Script de teste `npm run test-firebase` para validação
+
+**Arquivos corrigidos**: 
+- `lib/firebase.ts` - Configuração principal
+- `.env.local` - Variáveis de ambiente atualizadas
+- `scripts/test-firebase-config.js` - Script de validação
+- `package.json` - Adicionado comando test-firebase
+
+**Status**: ✅ TOTALMENTE FUNCIONANDO - Todos os erros do Firebase resolvidos, Analytics operacional
+
+#### ✅ Erro de Cadastro com Campos Undefined (Corrigido Completamente)
+**Problema**: Erro em produção durante cadastro de usuários
+- `Function setDoc() called with invalid data. Unsupported field value: undefined (found in field couponUsed in document users/RgxELvRebwg2buAc9D8kZamrKf2)`
+- Usuários viam mensagem técnica de erro ao invés de mensagem amigável
+
+**Causa Raiz Identificada**:
+- Campos opcionais `couponUsed` e `partnerId` sendo enviados como `undefined` para o Firestore
+- Firestore não aceita valores `undefined`, apenas `null` ou omissão do campo
+- Tratamento de erro genérico não capturava erro específico do Firestore
+
+**Solução Implementada**:
+- **Remoção de campos undefined**: Campos opcionais só são adicionados ao objeto se tiverem valor
+- **Tratamento de erro específico**: Detecção do erro Unsupported field value: undefined
+- **Mensagem amigável**: "Erro interno do sistema. Por favor, tente novamente ou entre em contato com o suporte.
+-**Validação de cupom**: Mantida validação de cupom inválido com mensagem específica
+
+**Arquivos corrigidos**:
+- `lib/auth-context.tsx` - Lógica de criação de documento do usuário
+- `app/register/page.tsx` - Tratamento de erros específicos do Firestore
+
+**Status**: ✅ TOTALMENTE FUNCIONANDO - Cadastro funcionando corretamente, mensagens amigáveis para usuários
+
+#### ✅ Acesso às Videoaulas para Plano Mestre (Corrigido Completamente)
+**Problema**: Usuários com plano mestre não conseguiam acessar videoaulas
+- Verificação de acesso estava incorreta nas páginas de videoaulas
+- Plano mestre não estava sendo incluído na verificação de acesso
+- Mesmo problema ocorria com material didático
+
+**Causa Raiz Identificada**:
+- Verificação `hasVideoAccess` estava verificando apenas `private` e `partner`
+- Faltava incluir o plano `mestre` na verificação
+- Mesmo problema em múltiplas páginas: aulas, detalhes de aula, materiais
+
+**Solução Implementada**:
+- **Correção nas páginas de videoaulas**: Adicionado `mestre` na verificação de acesso
+- **Correção nas páginas de materiais**: Adicionado `mestre` na verificação de acesso
+- **Verificação consistente**: Todas as páginas agora verificam `mestre`, `private` e `partner`
+- **Componente SubscriptionGuard**: Já estava correto, incluindo plano mestre
+
+**Arquivos corrigidos**:
+- `app/dashboard/aulas/page.tsx` - Lista de videoaulas
+- `app/dashboard/aulas/[id]/page.tsx` - Detalhes da videoaula
+- `app/dashboard/materiais/page.tsx` - Lista de materiais
+- `app/dashboard/materiais/[id]/page.tsx` - Detalhes do material
+
+**Status**: ✅ TOTALMENTE FUNCIONANDO - Plano mestre agora libera acesso às videoaulas e materiais corretamente
+
+#### ✅ Problema de CORS no Firebase Storage (Corrigido Completamente)
+**Problema**: Erro de CORS em loop impedindo upload de anexos no chat
+- `Preflight response is not successful`
+- `XMLHttpRequest cannot load https://firebasestorage.googleapis.com/...due to access control checks`
+- Upload de anexos do chat falhando tanto para aluno quanto professor
+
+**Causa Raiz Identificada**:
+- Bucket Firebase Storage sem configuração de CORS
+- Nome incorreto do bucket no código (`mestre-da-redacao.appspot.com` vs `mestre-da-redacao.firebasestorage.app`)
+- Path de upload inconsistente no chat (`essays/${fileName}` vs `essays/${user.uid}/${fileName}`)
+- gsutil com problemas de compatibilidade impedindo configuração manual
+
+**Solução Implementada**:
+- **Bucket correto identificado**: `mestre-da-redacao.firebasestorage.app`
+- **CORS configurado**: Via script personalizado usando @google-cloud/storage
+- **Path corrigido**: Chat agora usa `essays/${user.uid}/${Date.now()}-${file.name}` (igual às redações)
+- **Configuração Firebase atualizada**: storageBucket correto no lib/firebase.ts
+- **Script de teste criado**: Validação automática de upload e CORS
+
+**Arquivos corrigidos**:
+- `hooks/use-chat-attachments.ts` - Path de upload corrigido + validação de auth
+- `lib/firebase.ts` - storageBucket atualizado para o nome correto
+- `cors.json` - Headers adicionais para Firebase Storage
+- `scripts/fix-cors-issue.js` - Script para configurar CORS via API
+- `scripts/test-upload.js` - Teste automatizado de upload
+- `package.json` - Novos scripts fix-cors e test-upload
+
+**Configuração CORS aplicada**:
+```json
+{
+  "origin": ["*"],
+  "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+  "maxAgeSeconds": 3600,
+  "responseHeader": [
+    "Content-Type", "Authorization", "Content-Length", 
+    "User-Agent", "x-goog-resumable", "x-goog-content-length-range",
+    "x-firebase-storage-version", "access-control-allow-origin",
+    "access-control-allow-methods", "access-control-allow-headers"
+  ]
+}
+```
+
+**Status**: ✅ TOTALMENTE FUNCIONANDO - Upload de anexos no chat funciona para aluno e professor, CORS configurado, testes automatizados passando
+
+## 📚 DOCUMENTAÇÃO ADICIONAL
+
+### Links Úteis
+- [Firebase Console](https://console.firebase.google.com)
+- [Next.js Docs](https://nextjs.org/docs)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [Radix UI](https://radix-ui.com)
+- [shadcn/ui](https://ui.shadcn.com)
+
+### Scripts de Configuração
+- `scripts/init-firestore.ts`: Inicialização do banco
+- `scripts/popular-propostas.js`: Seed de temas de redação
+- `deploy.sh`: Script de deploy automatizado
+
+---
+
+## 📝 INSTRUÇÕES PARA AGENTES
+
+**IMPORTANTE**: Todo agente que interagir com este projeto DEVE:
+
+1. **LER ESTE DOCUMENTO COMPLETO** antes de fazer qualquer alteração
+2. **SEGUIR OS PADRÕES** de código e arquitetura estabelecidos  
+3. **ATUALIZAR ESTE DOCUMENTO** quando adicionar novas funcionalidades
+4. **MANTER CONSISTÊNCIA** com as convenções existentes
+5. **TESTAR LOCALMENTE** antes de fazer deploy
+6. **DOCUMENTAR MUDANÇAS** em comentários e commits claros
+
+### Ao Adicionar Nova Funcionalidade:
+1. Definir tipos TypeScript apropriados em `lib/types.ts`
+2. Criar hooks customizados se necessário
+3. Seguir padrão de componentes estabelecido
+4. Adicionar validação e tratamento de erros
+5. Implementar loading states
+6. Testar em mobile e desktop
+7. **ATUALIZAR ESTE DOCUMENTO** com detalhes da nova funcionalidade
+
+### Ao Corrigir Bugs:
+1. Identificar causa raiz do problema
+2. Implementar fix seguindo padrões existentes
+3. Testar cenários edge cases
+4. **ATUALIZAR SEÇÃO "PROBLEMAS CONHECIDOS"** se aplicável
+
+### Ao Refatorar Código:
+1. Manter compatibilidade com funcionalidades existentes
+2. Atualizar documentação de componentes afetados
+3. Verificar se tipos TypeScript ainda estão corretos
+4. **ATUALIZAR ESTE DOCUMENTO** se arquitetura mudou
+
+**LEMBRE-SE**: Este documento é a fonte de verdade do projeto. Mantenha-o sempre atualizado para garantir que outros agentes tenham contexto completo do projeto.
+
+---
+
+*Documento criado em: 30/06/2025*
+*Última atualização: 30/06/2025* 
+
+### Fluxo de Assinatura
+
+#### Portas de Entrada
+1. **Dashboard Principal** (`/dashboard`) - Botão "Gerenciar" no card do plano
+2. **Página de Plano** (`/dashboard/plano`) - Acesso direto ou via redirecionamentos
+3. **Redirecionamentos automáticos** quando usuário sem plano tenta acessar conteúdo restrito
+
+#### Regras de Negócio
+- **Troca de Plano**: Apenas via WhatsApp com o Mestre (5521981120169)
+- **Cancelamento**: Disponível apenas para planos pagos (não para private/partner)
+- **Compra**: Processo manual via WhatsApp, sem gateway de pagamento
+- **Cupons**: Instituições parceiras fornecem cupons para acesso partner
+
+#### Proteções de Conteúdo
+- **Videoaulas**: Apenas planos mestre, private e partner
+- **Material Didático**: Apenas planos mestre, private e partner
+- **Envio de Redações**: Todos os planos exceto free
+- **Propostas de Redação**: Acesso público para todos 
+
+### Componente SubscriptionGuard
+
+Componente para proteger rotas e funcionalidades baseado no tipo de assinatura do usuário.
+
+```typescript
+<SubscriptionGuard 
+  requiredPlan="mestre" 
+  feature="videoaulas"
+>
+  <VideoPlayer />
+</SubscriptionGuard>
+```
+
+**Props:**
+- `requiredPlan`: Tipo mínimo de plano necessário
+- `feature`: Tipo de funcionalidade (videoaulas, materiais, redacoes, propostas)
+- `fallback`: Componente customizado para exibir quando sem acesso
+- `children`: Conteúdo a ser protegido
+
+**Funcionalidades:**
+- Verificação automática de assinatura
+- UI de bloqueio com botão para WhatsApp
+- Redirecionamento para página de planos
+- Loading states durante verificação 

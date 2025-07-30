@@ -14,9 +14,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/use-toast"
-import { FileText, Upload, Loader2, ArrowLeft } from "lucide-react"
+import { FileText, Upload, Loader2, ArrowLeft, Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { useLogger } from "@/lib/logger"
 
 interface Essay {
   id: string
@@ -44,9 +48,22 @@ export default function NovaRedacao() {
   const [error, setError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [showNoCorrectionsModal, setShowNoCorrectionsModal] = useState(false)
+  const [open, setOpen] = useState(false)
+  const log = useLogger('NovaRedacaoAluno', '/dashboard/redacoes/nova')
 
   // Verificar se os dados necessários estão carregando
   const isLoading = authLoading || subscriptionLoading || themesLoading
+
+  // Step 1: Verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    log.info('Página de nova redação carregada', {
+      action: 'page_load',
+      metadata: { theme: 'light_forced' }
+    })
+  }, [log])
 
   // Buscar redações recentes
   useEffect(() => {
@@ -94,8 +111,8 @@ export default function NovaRedacao() {
         return
       }
 
-      if (selectedFile.size > 5 * 1024 * 1024) { // 5MB
-        setError('O arquivo deve ter no máximo 5MB')
+      if (selectedFile.size > 50 * 1024 * 1024) { // 50MB
+        setError('O arquivo deve ter no máximo 50MB')
         return
       }
 
@@ -128,18 +145,20 @@ export default function NovaRedacao() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Iniciando envio da redação...')
-    console.log('Estado atual:', {
-      user,
-      subscription,
-      file,
-      selectedTheme,
-      consentChecked,
-      isLoading
+    log.info('Iniciando envio da redação', {
+      action: 'submit_start',
+      metadata: {
+        user: user?.uid,
+        subscription: subscription?.type,
+        hasFile: !!file,
+        selectedTheme,
+        consentChecked,
+        isLoading
+      }
     })
 
     if (isLoading) {
-      console.log('Ainda carregando dados necessários...')
+      log.error('Tentativa de envio durante carregamento', new Error('Submit blocked during loading'))
       toast({
         title: "Aguarde",
         description: "Estamos carregando os dados necessários. Por favor, aguarde um momento.",
@@ -165,7 +184,7 @@ export default function NovaRedacao() {
         description: "Você precisa ter um plano ativo para enviar redações. Por favor, assine um plano primeiro.",
         variant: "destructive"
       })
-      router.push("/dashboard/assinatura")
+              router.push("/dashboard/plano")
       return
     }
 
@@ -317,8 +336,8 @@ export default function NovaRedacao() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end mt-4">
-            <Button onClick={() => { setShowNoCorrectionsModal(false); router.push("/dashboard/assinatura") }}>
-              Ir para assinatura
+            <Button onClick={() => { setShowNoCorrectionsModal(false); router.push("/dashboard/plano") }}>
+                              Ver Planos
             </Button>
           </div>
         </DialogContent>
@@ -351,18 +370,47 @@ export default function NovaRedacao() {
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="theme">Tema da Redação</Label>
-                      <Select value={selectedTheme} onValueChange={setSelectedTheme}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um tema" />
-                        </SelectTrigger>
-                        <SelectContent>
+                      <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={open}
+                            className="w-full justify-between"
+                          >
+                            {selectedTheme
+                              ? themes.find((theme) => theme.id === selectedTheme)?.title
+                              : "Selecione um tema..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+                          <Command>
+                            <CommandInput placeholder="Buscar tema..." />
+                            <CommandEmpty>Nenhum tema encontrado.</CommandEmpty>
+                            <CommandGroup className="max-h-64 overflow-auto">
                           {themes.map((theme) => (
-                            <SelectItem key={theme.id} value={theme.id}>
+                                <CommandItem
+                                  key={theme.id}
+                                  value={theme.title}
+                                  onSelect={() => {
+                                    setSelectedTheme(theme.id === selectedTheme ? "" : theme.id)
+                                    setOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedTheme === theme.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
                               {theme.title}
-                            </SelectItem>
+                                </CommandItem>
                           ))}
-                        </SelectContent>
-                      </Select>
+                            </CommandGroup>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                       {validationErrors.theme && (
                         <p className="text-sm text-red-500">{validationErrors.theme}</p>
                       )}
@@ -375,7 +423,7 @@ export default function NovaRedacao() {
                         <p className="text-sm font-medium mb-1">
                           Arraste e solte o arquivo da redação ou clique para selecionar
                         </p>
-                        <p className="text-xs text-gray-500 mb-4">Formatos aceitos: PDF, JPG, PNG (máximo 5MB)</p>
+                        <p className="text-xs text-gray-500 mb-4">Formatos aceitos: PDF, JPG, PNG (máximo 50MB)</p>
                         <Input
                           id="file"
                           type="file"

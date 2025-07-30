@@ -17,10 +17,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className="bg-background text-foreground">
+    <html lang="pt-BR" className="light">
+      <body className="bg-white text-gray-900 antialiased">
         <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange forcedTheme="light">
             {children}
           </ThemeProvider>
         </AuthProvider>

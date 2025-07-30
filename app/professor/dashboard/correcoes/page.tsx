@@ -53,11 +53,22 @@ export default function ProfessorCorrecoes() {
   const audioInputRef = useRef<HTMLInputElement | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Step de verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    
+    console.log('Página de correções do professor carregada')
+  }, [])
+
   useEffect(() => {
     const fetchEssays = async () => {
       if (!user) return
 
       try {
+        console.log('Iniciando busca de redações para correção')
+        
         // Buscar redações
         const essaysRef = collection(db, "essays")
         const q = query(
@@ -66,15 +77,10 @@ export default function ProfessorCorrecoes() {
         )
         
         const querySnapshot = await getDocs(q)
-        console.log("Total de redações encontradas:", querySnapshot.size)
+        console.log("Redações encontradas para correção:", querySnapshot.size)
         
         const essaysData = await Promise.all(querySnapshot.docs.map(async (docSnapshot) => {
           const essayData = docSnapshot.data() as Essay
-          console.log("Dados da redação:", {
-            id: docSnapshot.id,
-            files: essayData.files,
-            userId: essayData.userId
-          })
           
           // Buscar dados do usuário
           const userDocRef = doc(db, "users", essayData.userId)
@@ -99,7 +105,11 @@ export default function ProfessorCorrecoes() {
         })
 
         setEssays(essaysData)
-        console.log("Redações carregadas:", essaysData)
+        console.log("Redações carregadas com sucesso:", {
+          total: essaysData.length,
+          pending: essaysData.filter(e => !e.correction || (e.correction as any).status !== 'done').length,
+          completed: essaysData.filter(e => e.correction && (e.correction as any).status === 'done').length
+        })
 
         // Buscar temas únicos
         const uniqueThemeIds = [...new Set(essaysData.map(essay => essay.themeId))]
@@ -117,8 +127,10 @@ export default function ProfessorCorrecoes() {
         }
 
         setThemes(themesData)
+        console.log('Temas carregados:', Object.keys(themesData).length)
       } catch (error) {
         console.error("Erro ao buscar redações:", error)
+        toast.error("Erro ao carregar redações para correção")
       } finally {
         setLoading(false)
       }
@@ -142,6 +154,7 @@ export default function ProfessorCorrecoes() {
   )
 
   const handleSelectCorrection = (id: string) => {
+    console.log('Redação selecionada para correção:', id)
     setSelectedCorrection(id)
     const essay = essays.find(e => e.id === id)
     if (essay?.correction) {
@@ -154,6 +167,7 @@ export default function ProfessorCorrecoes() {
   }
 
   const handleBack = () => {
+    console.log('Voltando para lista de correções')
     setSelectedCorrection(null)
   }
 
@@ -162,6 +176,12 @@ export default function ProfessorCorrecoes() {
     newCompetencies[index].score = value[0]
 
     const totalScore = newCompetencies.reduce((sum, comp) => sum + comp.score, 0)
+
+    console.log('Competência alterada:', {
+      competency: newCompetencies[index].name,
+      new_score: value[0],
+      total_score: totalScore
+    })
 
     setCorrectionData({
       ...correctionData,
@@ -172,6 +192,7 @@ export default function ProfessorCorrecoes() {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
+      console.log('Imagem marcada carregada:', e.target.files[0].name)
       setCorrectionData({
         ...correctionData,
         markedImage: e.target.files[0],
@@ -180,10 +201,9 @@ export default function ProfessorCorrecoes() {
   }
 
   const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('PDF input onChange disparado');
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
-      console.log('Arquivo PDF selecionado:', file)
+      console.log('PDF de correção carregado:', file.name)
       setCorrectionData({
         ...correctionData,
         pdfCorrection: file,
@@ -193,10 +213,9 @@ export default function ProfessorCorrecoes() {
   }
 
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('Áudio input onChange disparado');
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
-      console.log('Arquivo de áudio selecionado:', file)
+      console.log('Áudio de feedback carregado:', file.name)
       setCorrectionData({
         ...correctionData,
         audioFeedback: file,

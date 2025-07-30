@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,55 +8,53 @@ import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { CheckCircle, CreditCard, Plus } from "lucide-react"
+import { CheckCircle, CreditCard, Plus, MessageCircle } from "lucide-react"
+import { useLogger } from "@/lib/logger"
+import { useAuth } from "@/lib/auth-context"
+import { useSubscription } from "@/hooks/use-subscription"
 
 export default function Plano() {
   const [selectedPlan, setSelectedPlan] = useState("mestre")
   const [tokenQuantity, setTokenQuantity] = useState(1)
+  const { user } = useAuth()
+  const { subscription, loading: subscriptionLoading } = useSubscription()
+  const log = useLogger('PlanoAluno', '/dashboard/plano')
 
-  // Mock data - in a real app, this would come from your backend
-  const userData = {
-    currentPlan: "Plano Mestre",
-    renewalDate: "15/05/2023",
-    corrections: {
-      used: 2,
-      total: 4,
-    },
-    tokens: 2,
-  }
+  // Step 1: Verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    log.info('Página de plano carregada', {
+      action: 'page_load',
+      metadata: { theme: 'light_forced' }
+    })
+  }, [log])
 
   const plans = [
     {
-      id: "basico",
-      name: "Plano Básico",
+      id: "free",
+      name: "Plano Gratuito",
       price: 0,
       corrections: 0,
-      features: ["Acesso ilimitado às videoaulas", "Acesso às propostas de redação"],
+      features: ["Acesso às propostas de redação"],
       color: "green",
     },
     {
-      id: "medio",
-      name: "Plano Médio",
-      price: 9.9,
-      corrections: 2,
-      features: ["Tudo do plano básico", "2 correções de redação por mês"],
-      color: "yellow",
+      id: "avulsa",
+      name: "Compra Avulsa",
+      price: 15.0,
+      corrections: 1,
+      features: ["Acesso às propostas de redação", "1 correção de redação"],
+      color: "blue",
     },
     {
       id: "mestre",
       name: "Plano Mestre",
-      price: 19.9,
-      corrections: 4,
-      features: ["Tudo do plano médio", "4 correções de redação por mês"],
-      color: "blue",
-    },
-    {
-      id: "mestre-plus",
-      name: "Plano Mestre++",
-      price: 35.9,
-      corrections: 6,
-      features: ["Tudo do plano mestre", "6 correções de redação por mês", "Chat com professor"],
-      color: "red",
+      price: 70.0,
+      corrections: 15,
+      features: ["Acesso completo às videoaulas", "Material didático completo", "15 correções por mês"],
+      color: "yellow",
       popular: true,
     },
   ]
@@ -72,6 +68,29 @@ export default function Plano() {
     if (!isNaN(value) && value > 0) {
       setTokenQuantity(value)
     }
+  }
+
+  const handleWhatsAppContact = (planType: string) => {
+    const plan = plans.find(p => p.id === planType)
+    
+    let message = ''
+    
+    switch (planType) {
+      case 'free':
+        message = `Oi! 👋 Vi que vocês têm um plano gratuito. Queria entender melhor como funciona a plataforma e quais são as opções pagas disponíveis. Poderia me explicar? 😊`
+        break
+      case 'avulsa':
+        message = `Oi! 👋 Me interessei pelo plano avulso de R$ 15,00. Queria saber mais sobre como funciona essa correção única e se posso escolher qualquer tema de redação. Como é o processo? 📝`
+        break
+      case 'mestre':
+        message = `Oi! 👋 Me interessei pelo Plano Mestre de R$ 70,00/mês! Queria entender melhor como funciona a plataforma, quantas correções posso fazer por mês e se tem acesso às videoaulas e materiais. Poderia me explicar tudo? 🎓✨`
+        break
+      default:
+        message = `Oi! 👋 Gostaria de saber mais sobre o ${plan?.name} (${plan?.price === 0 ? 'Grátis' : `R$ ${plan?.price.toFixed(2).replace('.', ',')}${planType === 'mestre' ? '/mês' : ''}`}). Como funciona? 😊`
+    }
+    
+    const encodedMessage = encodeURIComponent(message)
+    window.open(`https://wa.me/5521981120169?text=${encodedMessage}`, '_blank')
   }
 
   const getColorClass = (color: string) => {
@@ -104,6 +123,19 @@ export default function Plano() {
     }
   }
 
+  // Dados reais do usuário
+  const userData = {
+    currentPlan: subscription?.type === 'private' ? 'Plano Mestre' : 
+                 subscription?.type === 'partner' ? 'Aluno Parceiro' : 
+                 subscription?.type === 'free' ? 'Plano Gratuito' : 'Sem plano',
+    renewalDate: subscription?.updatedAt?.toDate ? subscription.updatedAt.toDate().toLocaleDateString() : "N/A",
+    corrections: {
+      used: subscription?.tokens ? (subscription.tokens.unlimited ? 0 : 15 - subscription.tokens.available) : 0,
+      total: subscription?.tokens?.unlimited ? 999 : (subscription?.tokens?.available || 0),
+    },
+    tokens: subscription?.tokens?.available || 0,
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -119,7 +151,7 @@ export default function Plano() {
         </TabsList>
 
         <TabsContent value="current">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-1">
             <Card>
               <CardHeader>
                 <CardTitle>Detalhes do plano</CardTitle>
@@ -131,122 +163,73 @@ export default function Plano() {
                   <p className="text-xl font-bold">{userData.currentPlan}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Próxima renovação</p>
+                  <p className="text-sm text-gray-500">Última atualização</p>
                   <p className="font-medium">{userData.renewalDate}</p>
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-sm">
                     <p className="text-gray-500">Correções utilizadas</p>
                     <p className="font-medium">
-                      {userData.corrections.used}/{userData.corrections.total}
+                      {subscription?.tokens?.unlimited ? 'Ilimitadas' : `${userData.corrections.used}/${userData.corrections.total}`}
                     </p>
                   </div>
-                  <Progress value={(userData.corrections.used / userData.corrections.total) * 100} className="h-2" />
+                  {!subscription?.tokens?.unlimited && (
+                    <Progress value={(userData.corrections.used / userData.corrections.total) * 100} className="h-2" />
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-gray-500">Tokens extras disponíveis</p>
-                  <p className="font-medium">{userData.tokens}</p>
+                  <p className="text-sm text-gray-500">Tokens disponíveis</p>
+                  <p className="font-medium">
+                    {subscription?.tokens?.unlimited ? 'Ilimitados' : userData.tokens}
+                  </p>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full">
-                  Cancelar assinatura
+                <Button 
+                  variant="outline" 
+                  className="w-full flex items-center gap-2"
+                  onClick={() => handleWhatsAppContact('mestre')}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Falar com o Mestre
                 </Button>
               </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Histórico de pagamentos</CardTitle>
-                <CardDescription>Seus pagamentos recentes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="border-b pb-4">
-                    <div className="flex justify-between mb-1">
-                      <p className="font-medium">Plano Mestre</p>
-                      <p className="font-medium">R$19,90</p>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <p>Renovação mensal</p>
-                      <p>15/04/2023</p>
-                    </div>
-                  </div>
-                  <div className="border-b pb-4">
-                    <div className="flex justify-between mb-1">
-                      <p className="font-medium">Tokens extras (2)</p>
-                      <p className="font-medium">R$12,00</p>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <p>Compra avulsa</p>
-                      <p>10/04/2023</p>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <p className="font-medium">Plano Mestre</p>
-                      <p className="font-medium">R$19,90</p>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <p>Renovação mensal</p>
-                      <p>15/03/2023</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
             </Card>
           </div>
         </TabsContent>
 
         <TabsContent value="upgrade">
-          <Card>
-            <CardHeader>
-              <CardTitle>Escolha seu plano</CardTitle>
-              <CardDescription>Selecione o plano que melhor atende às suas necessidades</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RadioGroup
-                value={selectedPlan}
-                onValueChange={handlePlanChange}
-                className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
-              >
-                {plans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className={`relative rounded-md border-2 p-4 ${selectedPlan === plan.id ? `${getColorClass(plan.color)} ring-2 ring-offset-2 ring-${plan.color}-400` : ""}`}
+          <div className="grid gap-6 md:grid-cols-3">
+            {plans.map((plan) => (
+              <Card key={plan.id} className={`${getColorClass(plan.color)} ${plan.popular ? 'ring-2 ring-yellow-400' : ''}`}>
+                <CardHeader>
+                  <CardTitle className={getTextColorClass(plan.color)}>{plan.name}</CardTitle>
+                  <CardDescription>
+                    {plan.price === 0 ? "Grátis" : `R$ ${plan.price.toFixed(2).replace('.', ',')}${plan.id === 'mestre' ? '/mês' : ''}`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2 text-sm">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    className="w-full flex items-center gap-2"
+                    onClick={() => handleWhatsAppContact(plan.id)}
                   >
-                    {plan.popular && (
-                      <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full">
-                        Popular
-                      </div>
-                    )}
-                    <RadioGroupItem value={plan.id} id={plan.id} className="sr-only" />
-                    <Label htmlFor={plan.id} className="flex flex-col h-full cursor-pointer">
-                      <span className={`font-medium ${getTextColorClass(plan.color)}`}>{plan.name}</span>
-                      <span className="mt-1 mb-2 text-2xl font-bold">
-                        {plan.price === 0 ? "Grátis" : `R$${plan.price.toFixed(2)}`}
-                        {plan.price > 0 && <span className="text-sm font-normal text-gray-500">/mês</span>}
-                      </span>
-                      <span className="text-sm mb-4">
-                        {plan.corrections === 0 ? "Sem correções inclusas" : `${plan.corrections} correções/mês`}
-                      </span>
-                      <ul className="space-y-2 text-sm text-gray-700 flex-grow">
-                        {plan.features.map((feature, index) => (
-                          <li key={index} className="flex items-start gap-2">
-                            <CheckCircle className={`h-4 w-4 mt-0.5 ${getTextColorClass(plan.color)}`} />
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button>Mudar para este plano</Button>
-            </CardFooter>
-          </Card>
+                    <MessageCircle className="h-4 w-4" />
+                    Falar com o Mestre
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
         </TabsContent>
 
         <TabsContent value="tokens">
@@ -288,7 +271,7 @@ export default function Plano() {
                 </div>
                 <div className="space-y-2 w-1/3">
                   <Label>Valor total</Label>
-                  <div className="text-2xl font-bold">R${(tokenQuantity * 6).toFixed(2)}</div>
+                  <div className="text-2xl font-bold">R${(tokenQuantity * 15).toFixed(2).replace('.', ',')}</div>
                 </div>
               </div>
 
@@ -300,7 +283,7 @@ export default function Plano() {
                   <div>
                     <p className="font-medium">Informações sobre tokens</p>
                     <ul className="text-sm text-gray-600 space-y-1 mt-1">
-                      <li>• Cada token custa R$6,00</li>
+                      <li>• Cada token custa R$15,00</li>
                       <li>• Tokens não expiram e ficam disponíveis na sua conta</li>
                       <li>• Você pode usar tokens a qualquer momento para enviar redações extras</li>
                       <li>• Tokens são consumidos apenas quando você envia uma redação para correção</li>
@@ -309,38 +292,14 @@ export default function Plano() {
                 </div>
               </div>
 
-              <div className="space-y-4 pt-4">
-                <h3 className="font-medium">Informações de pagamento</h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="card-number">Número do cartão</Label>
-                    <div className="flex">
-                      <div className="bg-gray-100 flex items-center px-3 rounded-l-md border border-r-0">
-                        <CreditCard className="h-4 w-4 text-gray-500" />
-                      </div>
-                      <Input id="card-number" placeholder="0000 0000 0000 0000" className="rounded-l-none" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiry">Validade</Label>
-                      <Input id="expiry" placeholder="MM/AA" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvc">CVC</Label>
-                      <Input id="cvc" placeholder="123" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome no cartão</Label>
-                    <Input id="name" placeholder="Nome completo" />
-                  </div>
-                </div>
-              </div>
+              <Button 
+                className="w-full flex items-center gap-2"
+                onClick={() => handleWhatsAppContact('avulsa')}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Falar com o Mestre
+              </Button>
             </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button>Finalizar compra</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { collection, query, where, getDocs } from "firebase/firestore"
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/hooks/use-subscription"
@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Video, FileText, MessageSquare, CheckCircle } from "lucide-react"
+import { Video, FileText, MessageSquare, CheckCircle, Folder, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { useLogger } from "@/lib/logger"
 
 interface Essay {
   id: string
@@ -45,7 +46,7 @@ interface Subscription {
   id: string
   userId: string
   planId: string
-  type: "free" | "medium" | "master" | "master-plus" | "private" | "partner"
+  type: "free" | "avulsa" | "mestre" | "private" | "partner"
   status: "active" | "cancelled"
   createdAt: any
   updatedAt: any
@@ -61,24 +62,19 @@ interface Subscription {
 
 const PLANS = {
   free: {
-    name: "Plano Básico",
+    name: "Plano Gratuito",
     description: "Para conhecer a plataforma",
     corrections: 0
   },
-  medium: {
-    name: "Plano Médio",
-    description: "Para praticar regularmente",
-    corrections: 2
+  avulsa: {
+    name: "Compra Avulsa",
+    description: "Para quem quer testar",
+    corrections: 1
   },
-  master: {
+  mestre: {
     name: "Plano Mestre",
-    description: "Para quem busca excelência",
-    corrections: 4
-  },
-  "master-plus": {
-    name: "Plano Mestre++",
     description: "Experiência completa",
-    corrections: 6
+    corrections: 15
   }
 }
 
@@ -114,18 +110,51 @@ function hasCorrectionStatus(correction: any): correction is { status: string } 
 
 export default function Dashboard() {
   const router = useRouter()
-  const { user, userName, loading: authLoading } = useAuth()
+  const { user, userName, loading: authLoading, userProfile } = useAuth()
   const { subscription, loading: subscriptionLoading } = useSubscription()
-  const { essays, loading: essaysLoading } = useEssays({ limit: 3 })
+  const { essays: recentEssays, loading: essaysLoading } = useEssays({ limit: 3 })
+  const { essays: allEssays, loading: allEssaysLoading } = useEssays({})
   const { lessons, progress, loading: lessonsLoading } = useLessons()
   const { chats, loading: chatsLoading } = useChats()
+  const [partner, setPartner] = useState<any>(null)
+  const log = useLogger('DashboardAluno', '/dashboard')
 
-  const loading = authLoading || subscriptionLoading || essaysLoading || lessonsLoading || chatsLoading
+  const loading = authLoading || subscriptionLoading || essaysLoading || allEssaysLoading || lessonsLoading || chatsLoading
+
+  // Step 1: Verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    log.info('Dashboard do aluno carregado', {
+      action: 'page_load',
+      metadata: { theme: 'light_forced' }
+    })
+  }, [log])
 
   // Log para debug
-  console.log('subscription:', subscription)
-  console.log('essays:', essays)
-  console.log('lessons:', lessons)
+  useEffect(() => {
+    log.info('Debug subscription', { action: 'debug', metadata: { subscription } })
+    log.info('Debug recentEssays', { action: 'debug', metadata: { recentEssays } })
+    log.info('Debug allEssays', { action: 'debug', metadata: { allEssays } })
+    log.info('Debug lessons', { action: 'debug', metadata: { lessons } })
+  }, [subscription, recentEssays, allEssays, lessons, log])
+
+  useEffect(() => {
+    async function fetchPartner() {
+      console.log('DEBUG userProfile:', userProfile)
+      console.log('DEBUG subscription:', subscription)
+      if (userProfile && subscription?.type === "partner" && userProfile.partnerId) {
+        console.log('DEBUG partnerId:', userProfile.partnerId)
+        const partnerSnap = await getDoc(doc(db, "partners", userProfile.partnerId))
+        console.log('DEBUG partnerSnap.exists:', partnerSnap.exists())
+        if (partnerSnap.exists()) {
+          setPartner(partnerSnap.data())
+        }
+      }
+    }
+    fetchPartner()
+  }, [userProfile, subscription])
 
   if (loading) {
     return (
@@ -144,6 +173,18 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold tracking-tight">Olá, {userName || 'Usuário'}</h1>
         <p className="text-gray-500">Bem-vindo ao seu painel de redação</p>
       </div>
+      {partner && (
+        <div className="flex items-center gap-4 p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+          {partner.imageUrl && (
+            <img src={partner.imageUrl} alt={partner.title} className="w-16 h-16 rounded object-cover border" />
+          )}
+          <div className="flex-1">
+            <div className="font-bold text-lg text-blue-900">{partner.title}</div>
+            <a href={partner.website} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline text-sm">{partner.website}</a>
+            <div className="text-xs text-blue-800 mt-1">Você está vinculado a este parceiro institucional.</div>
+          </div>
+        </div>
+      )}
 
       {/* Plan Status */}
       <div className="grid gap-6 md:grid-cols-3">
@@ -161,7 +202,7 @@ export default function Dashboard() {
                   {planoInfo.description}
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="px-4 py-2 border border-gray-300 rounded-md font-semibold text-gray-800 bg-white hover:bg-gray-50 transition" onClick={() => router.push("/dashboard/assinatura")}>Gerenciar</Button>
+              <Button size="sm" variant="outline" className="px-4 py-2 border border-gray-300 rounded-md font-semibold text-gray-800 bg-white hover:bg-gray-50 transition" onClick={() => router.push("/dashboard/plano")}>Gerenciar</Button>
             </div>
           </CardContent>
         </Card>
@@ -198,7 +239,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold">
-                  {Array.isArray(essays) ? essays.filter(e => hasCorrectionStatus(e.correction as any) && (e.correction as any).status === 'done').length : 0}
+                  {Array.isArray(allEssays) ? allEssays.filter(e => hasCorrectionStatus(e.correction as any) && (e.correction as any).status === 'done').length : 0}
                 </p>
                 <p className="text-xs text-gray-500">Total de correções</p>
               </div>
@@ -213,7 +254,7 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-5">
         <Link href="/dashboard/redacoes/nova">
           <Button
             variant="outline"
@@ -229,16 +270,28 @@ export default function Dashboard() {
             <span>Videoaulas</span>
           </Button>
         </Link>
-        <Link href="/em-construcao">
+        <Link href="/dashboard/materiais">
           <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 border border-gray-300 rounded-md font-semibold text-gray-800 bg-white hover:bg-gray-50 transition">
-            <MessageSquare className="h-6 w-6" />
-            <span>Chat com professor</span>
+            <Folder className="h-6 w-6" />
+            <span>Material didático</span>
           </Button>
         </Link>
         <Link href="/dashboard/propostas">
           <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 border border-gray-300 rounded-md font-semibold text-gray-800 bg-white hover:bg-gray-50 transition">
             <FileText className="h-6 w-6" />
             <span>Propostas de redação</span>
+          </Button>
+        </Link>
+        <Link href="/dashboard/relatorios">
+          <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 border border-gray-300 rounded-md font-semibold text-gray-800 bg-white hover:bg-gray-50 transition">
+            <TrendingUp className="h-6 w-6" />
+            <span>Relatórios</span>
+          </Button>
+        </Link>
+        <Link href="/dashboard/chat">
+          <Button variant="outline" className="w-full h-auto py-4 flex flex-col items-center gap-2 border border-gray-300 rounded-md font-semibold text-gray-800 bg-white hover:bg-gray-50 transition">
+            <MessageSquare className="h-6 w-6" />
+            <span>Chat</span>
           </Button>
         </Link>
       </div>
@@ -292,7 +345,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Array.isArray(essays) && essays.map((essay) => (
+              {Array.isArray(recentEssays) && recentEssays.map((essay) => (
                 essay && (
                   <div key={essay.id} className="flex items-start gap-4">
                     <div className="bg-gray-100 rounded-md p-2">

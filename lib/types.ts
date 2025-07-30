@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
 
-export type UserRole = 'student' | 'professor'
+export type UserRole = 'student' | 'professor' | 'admin'
 
 export interface User {
   id: string
@@ -9,9 +9,11 @@ export interface User {
   role: UserRole
   createdAt: Timestamp
   lastLogin: Timestamp
+  couponUsed?: string
+  partnerId?: string
 }
 
-export type SubscriptionType = 'free' | 'private' | 'partner' | 'medium' | 'master' | 'master_plus'
+export type SubscriptionType = 'free' | 'avulsa' | 'mestre' | 'private' | 'partner'
 export type SubscriptionStatus = 'active' | 'cancelled'
 
 export interface Subscription {
@@ -78,6 +80,12 @@ export interface Essay {
       total: number
     }
     status: string
+    assignedTo?: string
+    assignedAt?: Timestamp
+    completedAt?: Timestamp
+    feedback?: string
+    audioFileUrl?: string
+    correctionFileUrl?: string
   }
   theme?: {
     title: string
@@ -135,8 +143,33 @@ export interface ChatMessage {
   content: string
   timestamp: Timestamp
   read: boolean
+  attachments?: ChatAttachment[]
 }
 
+export interface ChatAttachment {
+  id: string
+  name: string
+  url: string
+  type: string
+  size: number
+  uploadedAt: Timestamp
+}
+
+export interface ChatTicket {
+  id: string
+  essayId?: string  // Tornando opcional
+  userId: string
+  professorId: string
+  status: ChatStatus
+  subject: string
+  createdAt: Timestamp
+  closedAt?: Timestamp
+  closedBy?: string
+  lastMessageAt: Timestamp
+  messages: ChatMessage[]
+}
+
+// Manter interface Chat para compatibilidade (deprecated)
 export interface Chat {
   id: string
   userId: string
@@ -145,4 +178,98 @@ export interface Chat {
   createdAt: Timestamp
   lastMessage: Timestamp
   messages: ChatMessage[]
+}
+
+// Sistema de Logs - OpenTelemetry Pattern
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error' | 'critical'
+
+export interface LogEntry {
+  id: string
+  timestamp: Timestamp
+  level: LogLevel
+  message: string
+  context?: {
+    userId?: string
+    userRole?: UserRole
+    action?: string
+    component?: string
+    page?: string
+    metadata?: Record<string, any>
+  }
+  error?: {
+    name: string
+    message: string
+    stack?: string
+  }
+  environment: 'development' | 'production'
+  version: string
+  sessionId: string
+  userAgent?: string
+}
+
+export interface LogFilter {
+  level?: LogLevel[]
+  userId?: string
+  component?: string
+  page?: string
+  startDate?: Date
+  endDate?: Date
+  search?: string
+}
+
+export interface LogStats {
+  total: number
+  byLevel: Record<LogLevel, number>
+  byComponent: Record<string, number>
+  byPage: Record<string, number>
+  recentErrors: LogEntry[]
+}
+
+// Tipos para gestão de alunos do professor
+export interface StudentStats {
+  essaysSubmitted: number
+  essaysCorrected: number
+  lessonsWatched: number
+  tokensUsed: number
+  averageScore?: number
+  lastActivity?: Timestamp
+}
+
+export interface StudentInfo {
+  id: string
+  name: string
+  email: string
+  createdAt: Timestamp
+  lastLogin: Timestamp
+  subscription: Subscription | null
+  stats: StudentStats
+  partnerInfo?: {
+    institutionName: string
+    contractEndDate: Timestamp
+  }
+  privateInfo?: {
+    teacherName: string
+  }
+}
+
+export interface PlanChangeLog {
+  id: string
+  studentId: string
+  oldPlan: SubscriptionType
+  newPlan: SubscriptionType
+  changedBy: string
+  changedAt: Timestamp
+  reason?: string
+  tokensAdded?: number
+}
+
+export interface StudentFilters {
+  search: string
+  planType: SubscriptionType | 'all'
+  status: 'active' | 'cancelled' | 'all'
+  activity: 'active' | 'inactive' | 'all'
+  dateRange: {
+    start: Date | null
+    end: Date | null
+  }
 } 

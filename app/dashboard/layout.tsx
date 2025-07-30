@@ -34,6 +34,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </Link>
             <div className="flex items-center gap-4">
               <span className="text-gray-600 text-sm sm:text-base">Olá, {userName}</span>
+              <Link href="/dashboard/configuracoes">
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
+                  Configurações
+                </Button>
+              </Link>
               <Button variant="outline" onClick={handleLogout}>
                 Sair
               </Button>

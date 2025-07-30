@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Home, Video, FileText, Inbox, MessageSquare, Settings, LogOut, Menu } from "lucide-react"
+import { Home, Video, FileText, Inbox, MessageSquare, Settings, LogOut, Menu, Users, Folder } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useMobile } from "@/hooks/use-mobile"
@@ -53,18 +53,40 @@ export default function ProfessorDashboardLayout({ children }: DashboardLayoutPr
         <span>Propostas</span>
       </Link>
       <Link
+        href="/professor/dashboard/materiais"
+        className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100"
+      >
+        <Folder className="h-5 w-5" />
+        <span>Material didático</span>
+      </Link>
+      <Link
         href="/professor/dashboard/correcoes"
         className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100"
       >
         <Inbox className="h-5 w-5" />
         <span>Correções</span>
       </Link>
+
       <Link
-        href="/professor/dashboard/mensagens"
+        href="/professor/dashboard/alunos"
+        className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100"
+      >
+        <Users className="h-5 w-5" />
+        <span>Alunos</span>
+      </Link>
+      <Link
+        href="/professor/dashboard/parceiros"
+        className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100"
+      >
+        <Users className="h-5 w-5" />
+        <span>Parceiros</span>
+      </Link>
+      <Link
+        href="/professor/dashboard/chat"
         className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100"
       >
         <MessageSquare className="h-5 w-5" />
-        <span>Mensagens</span>
+        <span>Chat</span>
       </Link>
       <Link
         href="/professor/dashboard/configuracoes"

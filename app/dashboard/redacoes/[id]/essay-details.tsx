@@ -5,7 +5,8 @@ import { db } from "@/lib/firebase"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download, FileText } from "lucide-react"
+import { Download, FileText, MessageSquare } from "lucide-react"
+import { useLogger } from "@/lib/logger"
 
 interface Props {
   id: string
@@ -16,6 +17,18 @@ export function EssayDetails({ id }: Props) {
   const [theme, setTheme] = useState<any>(null)
   const [professorName, setProfessorName] = useState<string>("")
   const [loading, setLoading] = useState(true)
+  const log = useLogger('RedacaoDetalhesAluno', '/dashboard/redacoes/[id]')
+
+  // Step 1: Verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    log.info('Página de detalhes da redação carregada', {
+      action: 'page_load',
+      metadata: { theme: 'light_forced', redacaoId: id }
+    })
+  }, [log, id])
 
   useEffect(() => {
     async function fetchData() {
@@ -44,6 +57,11 @@ export function EssayDetails({ id }: Props) {
     }
     fetchData()
   }, [id])
+
+  // Adicionar logs estruturados para debug de essay
+  useEffect(() => {
+    log.info('Debug essay details', { action: 'debug', metadata: { essay, theme, professorName } })
+  }, [essay, theme, professorName, log])
 
   if (loading) return <div className="p-8 text-center text-gray-500">Carregando...</div>
   if (!essay) return <div className="p-8 text-center text-red-500">Redação não encontrada.</div>
@@ -212,6 +230,33 @@ export function EssayDetails({ id }: Props) {
             <div>
               <span className="font-semibold">Feedback em áudio:</span>
               <audio controls src={audioFileUrl} className="w-full mt-2" />
+            </div>
+          )}
+
+          {/* Botão para abrir chat */}
+          {essay.status === 'done' && essay.correction?.assignedTo && (
+            <div className="mt-6 pt-6 border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-lg">Tem dúvidas sobre a correção?</h3>
+                  <p className="text-gray-600 text-sm">Abra um chat com o professor para tirar suas dúvidas</p>
+                </div>
+                <Button 
+                  onClick={() => {
+                    // Redirecionar para o chat com a redação pré-selecionada
+                    const params = new URLSearchParams({
+                      essayId: essay.id,
+                      professorId: essay.correction.assignedTo,
+                      subject: `Dúvidas sobre correção: ${theme?.title || 'Redação'}`
+                    })
+                    window.location.href = `/dashboard/chat?${params.toString()}`
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Abrir Chat
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

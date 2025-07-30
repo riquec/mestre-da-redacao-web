@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -42,17 +42,27 @@ export default function NovaProposta() {
 
   const [tagInput, setTagInput] = useState("")
 
+  // Step de verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    console.log('Página de nova proposta carregada')
+  }, [])
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSelectChange = (name: string, value: string) => {
+    console.log('Campo alterado:', name, 'para:', value)
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleAddTag = () => {
     if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+      console.log('Adicionando tag:', tagInput.trim())
       setFormData(prev => ({
         ...prev,
         tags: [...prev.tags, tagInput.trim()]
@@ -62,6 +72,7 @@ export default function NovaProposta() {
   }
 
   const handleRemoveTag = (tagToRemove: string) => {
+    console.log('Removendo tag:', tagToRemove)
     setFormData(prev => ({
       ...prev,
       tags: prev.tags.filter(tag => tag !== tagToRemove)

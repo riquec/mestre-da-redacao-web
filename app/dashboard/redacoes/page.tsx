@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { FileText, Plus, Tag } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { useLogger } from "@/lib/logger"
 
 interface Essay {
   id: string
@@ -41,6 +42,18 @@ export default function Redacoes() {
   const { user } = useAuth()
   const [essays, setEssays] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const log = useLogger('RedacoesAluno', '/dashboard/redacoes')
+
+  // Step 1: Verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    log.info('Página de redações carregada', {
+      action: 'page_load',
+      metadata: { theme: 'light_forced' }
+    })
+  }, [log])
 
   useEffect(() => {
     async function fetchEssaysAndThemes() {
@@ -81,6 +94,11 @@ export default function Redacoes() {
 
     fetchEssaysAndThemes()
   }, [user])
+
+  // Adicionar logs estruturados para debug de essays
+  useEffect(() => {
+    log.info('Debug essays', { action: 'debug', metadata: { essays } })
+  }, [essays, log])
 
   if (loading) {
     return (

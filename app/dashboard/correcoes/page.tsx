@@ -1,15 +1,28 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Clock, CheckCircle, FileText, Play, MessageSquare } from "lucide-react"
+import { useLogger } from "@/lib/logger"
 
 export default function Correcoes() {
   const [selectedCorrection, setSelectedCorrection] = useState<number | null>(null)
+  const log = useLogger('CorrecoesAluno', '/dashboard/correcoes')
+
+  // Step 1: Verificação anti-tema escuro
+  useEffect(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+    document.body.className = 'bg-white text-gray-900 antialiased'
+    log.info('Página de correções carregada', {
+      action: 'page_load',
+      metadata: { theme: 'light_forced' }
+    })
+  }, [log])
 
   // Mock data - in a real app, this would come from your backend
   const pendingCorrections = [

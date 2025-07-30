@@ -21,15 +21,14 @@ export function useEssays(options: { limit?: number; status?: Essay['status'] } 
       try {
         console.log('useEssays: Iniciando busca de redações para usuário:', user.uid)
         const essaysRef = collection(db, 'essays')
-        let q = query(
+        let q
+        
+        // Query simples - sempre buscar todas as redações do usuário
+        q = query(
           essaysRef,
           where('userId', '==', user.uid),
           orderBy('submittedAt', 'desc')
         )
-
-        if (options.status) {
-          q = query(q, where('status', '==', options.status))
-        }
 
         if (options.limit) {
           q = query(q, limit(options.limit))
@@ -83,7 +82,13 @@ export function useEssays(options: { limit?: number; status?: Essay['status'] } 
         setEssays(essaysData)
       } catch (err) {
         console.error('useEssays: Erro ao buscar redações:', err)
-        setError(err as Error)
+        
+        // Tratamento específico para erro de índice
+        if (err instanceof Error && (err.message.includes('requires an index') || err.message.includes('index'))) {
+          setError(new Error('Sistema temporariamente indisponível. Por favor, tente novamente em alguns instantes.'))
+        } else {
+          setError(err as Error)
+        }
       } finally {
         setLoading(false)
       }
