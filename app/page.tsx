@@ -377,7 +377,7 @@ export default function Home() {
                 <CardTitle className="text-yellow-700 text-lg">Plano Mestre</CardTitle>
                 <CardDescription className="text-yellow-600 text-sm">Experiência completa</CardDescription>
                 <div className="mt-2">
-                  <span className="text-2xl md:text-3xl font-bold text-blue-900">R$70,00</span>
+                  <span className="text-2xl md:text-3xl font-bold text-blue-900">R$100,00</span>
                   <span className="text-blue-700 text-sm">/mês</span>
                 </div>
               </CardHeader>
@@ -408,7 +408,7 @@ export default function Home() {
               <CardFooter>
                 <Button 
                   className="w-full bg-yellow-500 hover:bg-yellow-600 text-white text-sm md:text-base"
-                  onClick={() => handlePlanClick('Mestre', 'R$70,00')}
+                  onClick={() => handlePlanClick('Mestre', 'R$100,00')}
                 >
                   Assinar plano
                 </Button>
