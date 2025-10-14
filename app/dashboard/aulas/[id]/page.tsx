@@ -155,7 +155,14 @@ export default function AulaPage() {
         {/* Player de vídeo */}
         <div className="aspect-video w-full bg-black rounded-lg overflow-hidden flex items-center justify-center">
           {aula.videoUrl ? (
-            <video src={aula.videoUrl} controls className="w-full h-full" poster={aula.thumbnail || undefined} />
+            <video 
+              src={aula.videoUrl} 
+              controls 
+              controlsList="nodownload nofullscreen noremoteplayback"
+              disablePictureInPicture
+              className="w-full h-full" 
+              poster={aula.thumbnail || undefined} 
+            />
           ) : (
             <span className="text-gray-400">Vídeo não disponível</span>
           )}

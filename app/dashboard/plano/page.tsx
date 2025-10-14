@@ -51,9 +51,9 @@ export default function Plano() {
     {
       id: "mestre",
       name: "Plano Mestre",
-      price: 70.0,
-      corrections: 15,
-      features: ["Acesso completo às videoaulas", "Material didático completo", "15 correções por mês"],
+      price: 100.0,
+      corrections: 6,
+      features: ["Acesso completo às videoaulas", "Material didático completo", "6 correções por mês"],
       color: "yellow",
       popular: true,
     },
@@ -83,7 +83,7 @@ export default function Plano() {
         message = `Oi! 👋 Me interessei pelo plano avulso de R$ 15,00. Queria saber mais sobre como funciona essa correção única e se posso escolher qualquer tema de redação. Como é o processo? 📝`
         break
       case 'mestre':
-        message = `Oi! 👋 Me interessei pelo Plano Mestre de R$ 70,00/mês! Queria entender melhor como funciona a plataforma, quantas correções posso fazer por mês e se tem acesso às videoaulas e materiais. Poderia me explicar tudo? 🎓✨`
+        message = `Oi! 👋 Me interessei pelo Plano Mestre de R$ 100,00/mês! Queria entender melhor como funciona a plataforma, quantas correções posso fazer por mês e se tem acesso às videoaulas e materiais. Poderia me explicar tudo? 🎓✨`
         break
       default:
         message = `Oi! 👋 Gostaria de saber mais sobre o ${plan?.name} (${plan?.price === 0 ? 'Grátis' : `R$ ${plan?.price.toFixed(2).replace('.', ',')}${planType === 'mestre' ? '/mês' : ''}`}). Como funciona? 😊`
@@ -130,8 +130,8 @@ export default function Plano() {
                  subscription?.type === 'free' ? 'Plano Gratuito' : 'Sem plano',
     renewalDate: subscription?.updatedAt?.toDate ? subscription.updatedAt.toDate().toLocaleDateString() : "N/A",
     corrections: {
-      used: subscription?.tokens ? (subscription.tokens.unlimited ? 0 : 15 - subscription.tokens.available) : 0,
-      total: subscription?.tokens?.unlimited ? 999 : (subscription?.tokens?.available || 0),
+              used: subscription?.tokens ? (6 - subscription.tokens.available) : 0,
+        total: subscription?.tokens?.available || 0,
     },
     tokens: subscription?.tokens?.available || 0,
   }
@@ -170,17 +170,15 @@ export default function Plano() {
                   <div className="flex justify-between text-sm">
                     <p className="text-gray-500">Correções utilizadas</p>
                     <p className="font-medium">
-                      {subscription?.tokens?.unlimited ? 'Ilimitadas' : `${userData.corrections.used}/${userData.corrections.total}`}
+                      {`${userData.corrections.used}/6`}
                     </p>
                   </div>
-                  {!subscription?.tokens?.unlimited && (
-                    <Progress value={(userData.corrections.used / userData.corrections.total) * 100} className="h-2" />
-                  )}
+                  <Progress value={(userData.corrections.used / 6) * 100} className="h-2" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm text-gray-500">Tokens disponíveis</p>
                   <p className="font-medium">
-                    {subscription?.tokens?.unlimited ? 'Ilimitados' : userData.tokens}
+                    {userData.tokens}
                   </p>
                 </div>
               </CardContent>

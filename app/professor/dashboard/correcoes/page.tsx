@@ -158,10 +158,44 @@ export default function ProfessorCorrecoes() {
     setSelectedCorrection(id)
     const essay = essays.find(e => e.id === id)
     if (essay?.correction) {
+      const correction = essay.correction as any
+      const competencies = [
+        { name: "Domínio da norma culta", score: correction.score?.dominioNormaCulta || 0, maxScore: 200 },
+        { name: "Compreensão da proposta", score: correction.score?.compreensaoProposta || 0, maxScore: 200 },
+        { name: "Seleção de argumentos", score: correction.score?.selecaoArgumentos || 0, maxScore: 200 },
+        { name: "Coesão textual", score: correction.score?.coesaoTextual || 0, maxScore: 200 },
+        { name: "Proposta de intervenção", score: correction.score?.propostaIntervencao || 0, maxScore: 200 },
+      ]
+      
       setCorrectionData({
         ...correctionData,
-        score: essay.correction.score?.total || 0,
-        feedback: (essay.correction as any).feedback || "",
+        score: correction.score?.total || 0,
+        competencies: competencies,
+        feedback: correction.feedback || "",
+        // Reset file uploads for editing
+        audioFeedback: null,
+        pdfCorrection: null,
+        audioPreview: null,
+        pdfPreview: null,
+        markedImage: null,
+      })
+    } else {
+      // Reset to default values for new corrections
+      setCorrectionData({
+        score: 0,
+        competencies: [
+          { name: "Domínio da norma culta", score: 0, maxScore: 200 },
+          { name: "Compreensão da proposta", score: 0, maxScore: 200 },
+          { name: "Seleção de argumentos", score: 0, maxScore: 200 },
+          { name: "Coesão textual", score: 0, maxScore: 200 },
+          { name: "Proposta de intervenção", score: 0, maxScore: 200 },
+        ],
+        feedback: "",
+        audioFeedback: null,
+        pdfCorrection: null,
+        audioPreview: null,
+        pdfPreview: null,
+        markedImage: null,
       })
     }
   }
@@ -235,18 +269,30 @@ export default function ProfessorCorrecoes() {
     if (!selectedCorrection || !user) return
     setIsSubmitting(true)
     let audioRef, pdfRef, audioUrl = '', pdfUrl = ''
+    
     try {
-      // 1. Upload dos arquivos
+      const existingEssay = essays.find(e => e.id === selectedCorrection)
+      const existingCorrection = existingEssay?.correction as any
+      
+      // 1. Upload dos arquivos (apenas se novos arquivos foram selecionados)
       if (correctionData.audioFeedback) {
         audioRef = ref(storage, `corrections/${selectedCorrection}/audio-feedback`)
         await uploadBytes(audioRef, correctionData.audioFeedback)
         audioUrl = await getDownloadURL(audioRef)
+      } else if (existingCorrection?.audioFileUrl) {
+        // Manter URL existente se não foi carregado novo arquivo
+        audioUrl = existingCorrection.audioFileUrl
       }
+      
       if (correctionData.pdfCorrection) {
         pdfRef = ref(storage, `corrections/${selectedCorrection}/correction-pdf`)
         await uploadBytes(pdfRef, correctionData.pdfCorrection)
         pdfUrl = await getDownloadURL(pdfRef)
+      } else if (existingCorrection?.correctionFileUrl) {
+        // Manter URL existente se não foi carregado novo arquivo
+        pdfUrl = existingCorrection.correctionFileUrl
       }
+      
       // 2. Atualizar documento no Firestore
       const essayRef = doc(db, "essays", selectedCorrection)
       const total = correctionData.competencies.reduce((sum, comp) => sum + comp.score, 0);
@@ -258,16 +304,21 @@ export default function ProfessorCorrecoes() {
         coesaoTextual: correctionData.competencies[3].score,
         propostaIntervencao: correctionData.competencies[4].score
       }
+      
+      const updatedCorrection = {
+        ...(existingCorrection || {}),
+        audioFileUrl: audioUrl,
+        correctionFileUrl: pdfUrl,
+        correctionFileName: correctionData.pdfCorrection?.name || existingCorrection?.correctionFileName,
+        completedAt: existingCorrection?.completedAt || new Date(),
+        updatedAt: new Date(), // Add update timestamp for edits
+        score: scoreObj,
+        feedback: correctionData.feedback,
+        status: "done"
+      }
+      
       await updateDoc(essayRef, {
-        correction: {
-          ...(essays.find(e => e.id === selectedCorrection)?.correction || {}),
-          audioFileUrl: audioUrl,
-          correctionFileUrl: pdfUrl,
-          correctionFileName: correctionData.pdfCorrection?.name,
-          completedAt: new Date(),
-          score: scoreObj,
-          status: "done"
-        }
+        correction: updatedCorrection
       })
 
       // 3. Recarregar os dados das redações
@@ -304,7 +355,8 @@ export default function ProfessorCorrecoes() {
       setEssays(essaysData)
 
       // 4. Sucesso: mostrar pop-up e redirecionar
-      toast.success("Correção enviada com sucesso!")
+      const isEditing = existingCorrection && existingCorrection.status === 'done'
+      toast.success(isEditing ? "Correção atualizada com sucesso!" : "Correção enviada com sucesso!")
       setSelectedCorrection(null)
     } catch (error) {
       // 5. Se falhar, deletar arquivos enviados
@@ -411,8 +463,8 @@ export default function ProfessorCorrecoes() {
                             </p>
                           </div>
                         </div>
-                        <Button variant="outline" onClick={() => handleSelectCorrection(essay.id)} disabled>
-                          Ver detalhes
+                        <Button variant="outline" onClick={() => handleSelectCorrection(essay.id)}>
+                          Editar correção
                         </Button>
                       </div>
                     </CardContent>
@@ -435,7 +487,13 @@ export default function ProfessorCorrecoes() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Corrigir redação</CardTitle>
+              <CardTitle>
+                {(() => {
+                  const existingEssay = essays.find(e => e.id === selectedCorrection)
+                  const isEditing = existingEssay?.correction && (existingEssay.correction as any).status === 'done'
+                  return isEditing ? "Editar correção" : "Corrigir redação"
+                })()}
+              </CardTitle>
               <CardDescription>{themes[essays.find((e) => e.id === selectedCorrection)?.themeId || '']?.title || 'Tema não encontrado'}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -519,33 +577,62 @@ export default function ProfessorCorrecoes() {
 
               <div className="space-y-4">
                 <h3 className="font-medium">Upload do PDF da correção</h3>
-                <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center">
-                  <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm font-medium mb-1">
-                    Arraste e solte o PDF da correção ou clique para selecionar
-                  </p>
-                  <p className="text-xs text-gray-500 mb-4">Formato aceito: PDF (máx. 5MB)</p>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      id="pdf-correction"
-                      type="file"
-                      accept=".pdf"
-                      onChange={handlePdfUpload}
-                    />
-                    {correctionData.pdfCorrection && (
-                      <span className="text-sm text-gray-500">
-                        {correctionData.pdfCorrection.name}
-                      </span>
-                    )}
-                  </div>
-                  {correctionData.pdfPreview && (
-                    <iframe
-                      src={correctionData.pdfPreview}
-                      className="w-full h-64 border rounded-md mt-4"
-                      title="Pré-visualização do PDF"
-                    />
-                  )}
-                </div>
+                {(() => {
+                  const existingEssay = essays.find(e => e.id === selectedCorrection)
+                  const existingCorrection = existingEssay?.correction as any
+                  const hasExistingPdf = existingCorrection?.correctionFileUrl
+                  
+                  return (
+                    <div className="space-y-4">
+                      {hasExistingPdf && !correctionData.pdfCorrection && (
+                        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                          <p className="text-sm text-blue-800 font-medium mb-2">PDF atual da correção:</p>
+                          <div className="flex items-center gap-4">
+                            <a
+                              href={hasExistingPdf}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 text-sm font-medium"
+                            >
+                              Visualizar PDF atual
+                            </a>
+                            <span className="text-xs text-blue-600">
+                              {existingCorrection?.correctionFileName || 'correção.pdf'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center">
+                        <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm font-medium mb-1">
+                          {hasExistingPdf ? "Carregar novo PDF (opcional)" : "Arraste e solte o PDF da correção ou clique para selecionar"}
+                        </p>
+                        <p className="text-xs text-gray-500 mb-4">Formato aceito: PDF (máx. 5MB)</p>
+                        <div className="flex items-center gap-4">
+                          <Input
+                            id="pdf-correction"
+                            type="file"
+                            accept=".pdf"
+                            onChange={handlePdfUpload}
+                          />
+                          {correctionData.pdfCorrection && (
+                            <span className="text-sm text-gray-500">
+                              {correctionData.pdfCorrection.name}
+                            </span>
+                          )}
+                        </div>
+                        {correctionData.pdfPreview && (
+                          <iframe
+                            src={correctionData.pdfPreview}
+                            className="w-full h-64 border rounded-md mt-4"
+                            title="Pré-visualização do PDF"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               <div className="space-y-4">
@@ -592,41 +679,86 @@ export default function ProfessorCorrecoes() {
               </div>
 
               <div className="space-y-4">
+                <h3 className="font-medium">Feedback escrito</h3>
+                <Textarea
+                  placeholder="Digite aqui o feedback detalhado para o aluno..."
+                  value={correctionData.feedback}
+                  onChange={handleFeedbackChange}
+                  rows={5}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-4">
                 <h3 className="font-medium">Feedback em áudio</h3>
-                <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center">
-                  <Mic className="h-8 w-8 text-gray-400 mb-2" />
-                  <p className="text-sm font-medium mb-1">
-                    Arraste e solte o arquivo de áudio ou clique para selecionar
-                  </p>
-                  <p className="text-xs text-gray-500 mb-4">Formatos aceitos: MP3, WAV (máx. 10MB)</p>
-                  <div className="flex items-center gap-4">
-                    <Input
-                      id="audio-feedback"
-                      type="file"
-                      accept=".mp3,.wav"
-                      onChange={handleAudioUpload}
-                    />
-                    {correctionData.audioFeedback && (
-                      <span className="text-sm text-gray-500">
-                        {correctionData.audioFeedback.name}
-                      </span>
-                    )}
-                  </div>
-                  {correctionData.audioPreview && (
-                    <audio controls className="w-full mt-4">
-                      <source src={correctionData.audioPreview} type="audio/mpeg" />
-                      Seu navegador não suporta o elemento de áudio.
-                    </audio>
-                  )}
-                </div>
+                {(() => {
+                  const existingEssay = essays.find(e => e.id === selectedCorrection)
+                  const existingCorrection = existingEssay?.correction as any
+                  const hasExistingAudio = existingCorrection?.audioFileUrl
+                  
+                  return (
+                    <div className="space-y-4">
+                      {hasExistingAudio && !correctionData.audioFeedback && (
+                        <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+                          <p className="text-sm text-green-800 font-medium mb-2">Áudio atual do feedback:</p>
+                          <audio controls className="w-full">
+                            <source src={hasExistingAudio} type="audio/mpeg" />
+                            Seu navegador não suporta o elemento de áudio.
+                          </audio>
+                        </div>
+                      )}
+                      
+                      <div className="border-2 border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center">
+                        <Mic className="h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm font-medium mb-1">
+                          {hasExistingAudio ? "Carregar novo áudio (opcional)" : "Arraste e solte o arquivo de áudio ou clique para selecionar"}
+                        </p>
+                        <p className="text-xs text-gray-500 mb-4">Formatos aceitos: MP3, WAV (máx. 10MB)</p>
+                        <div className="flex items-center gap-4">
+                          <Input
+                            id="audio-feedback"
+                            type="file"
+                            accept=".mp3,.wav"
+                            onChange={handleAudioUpload}
+                          />
+                          {correctionData.audioFeedback && (
+                            <span className="text-sm text-gray-500">
+                              {correctionData.audioFeedback.name}
+                            </span>
+                          )}
+                        </div>
+                        {correctionData.audioPreview && (
+                          <audio controls className="w-full mt-4">
+                            <source src={correctionData.audioPreview} type="audio/mpeg" />
+                            Seu navegador não suporta o elemento de áudio.
+                          </audio>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </CardContent>
             <CardFooter className="flex justify-end">
               <Button
                 onClick={handleSubmitCorrection}
-                disabled={isSubmitting || !correctionData.audioFeedback || !correctionData.pdfCorrection}
+                disabled={isSubmitting || (() => {
+                  const existingEssay = essays.find(e => e.id === selectedCorrection)
+                  const existingCorrection = existingEssay?.correction as any
+                  const hasExistingAudio = existingCorrection?.audioFileUrl
+                  const hasExistingPdf = existingCorrection?.correctionFileUrl
+                  const hasNewAudio = correctionData.audioFeedback
+                  const hasNewPdf = correctionData.pdfCorrection
+                  
+                  // Require either existing files OR new files
+                  return !(hasExistingAudio || hasNewAudio) || !(hasExistingPdf || hasNewPdf)
+                })()}
               >
-                {isSubmitting ? "Enviando..." : "Enviar correção"}
+                {isSubmitting ? "Salvando..." : (() => {
+                  const existingEssay = essays.find(e => e.id === selectedCorrection)
+                  const isEditing = existingEssay?.correction && (existingEssay.correction as any).status === 'done'
+                  return isEditing ? "Salvar alterações" : "Enviar correção"
+                })()}
               </Button>
             </CardFooter>
           </Card>
