@@ -44,6 +44,38 @@ const NEW_INDEXES = [
       "app/dashboard/aulas/page.tsx",
       "app/professor/dashboard/aulas/page.tsx"
     ]
+  },
+  {
+    collectionGroup: "essays",
+    queryScope: "COLLECTION",
+    fields: [
+      {
+        fieldPath: "userId",
+        order: "ASCENDING"
+      },
+      {
+        fieldPath: "submittedAt",
+        order: "DESCENDING"
+      }
+    ],
+    reason: "Query: where('userId', '==', user.uid) + orderBy('submittedAt', 'desc')",
+    usedIn: ["hooks/use-essays.ts", "app/dashboard/page.tsx"]
+  },
+  {
+    collectionGroup: "chats",
+    queryScope: "COLLECTION",
+    fields: [
+      {
+        fieldPath: "userId",
+        order: "ASCENDING"
+      },
+      {
+        fieldPath: "lastMessage",
+        order: "DESCENDING"
+      }
+    ],
+    reason: "Query: where('userId', '==', user.uid) + orderBy('lastMessage', 'desc')",
+    usedIn: ["hooks/use-chats.ts", "app/dashboard/page.tsx"]
   }
 ];
 
