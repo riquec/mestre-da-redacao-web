@@ -124,6 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Função para buscar dados do usuário
   const fetchUserData = async (userId: string) => {
+    console.log('🔐 [AUTH] fetchUserData iniciado para userId:', userId)
     try {
       logger.debug('Buscando dados do usuário', { 
         action: 'fetch_user_data', 
@@ -131,10 +132,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         metadata: { userId } 
       })
 
+      console.log('🔐 [AUTH] Obtendo referência do Firestore...')
       const db = getFirebaseFirestore()
+      console.log('🔐 [AUTH] Buscando documento users/' + userId)
       const userDoc = await getDoc(doc(db, "users", userId))
+      console.log('🔐 [AUTH] Documento existe?', userDoc.exists())
+      
       if (userDoc.exists()) {
         const userData = userDoc.data() as User
+        console.log('🔐 [AUTH] Dados do usuário encontrados:', {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        })
         console.log('DEBUG fetchUserData Firestore:', userData)
         setUserName(userData.name)
         setRole(userData.role)
@@ -153,11 +164,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         })
 
+        console.log('🔐 [AUTH] fetchUserData concluído com sucesso')
         return userData
       }
+      console.warn('🔐 [AUTH] Documento do usuário não encontrado no Firestore')
       setUserProfile(null)
       return null
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ [AUTH] ERRO em fetchUserData:', error)
+      console.error('❌ [AUTH] Erro code:', error?.code)
+      console.error('❌ [AUTH] Erro message:', error?.message)
       logger.error('Erro ao buscar dados do usuário', error as Error, {
         action: 'fetch_user_data_error',
         component: 'AuthProvider',
@@ -181,6 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    console.log('🔐 [AUTH] Inicializando listener de autenticação...')
     logger.debug('Inicializando listener de autenticação', {
       component: 'AuthProvider',
       action: 'auth_listener_init'
@@ -188,15 +205,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const auth = getFirebaseAuth()
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      console.log('🔐 [AUTH] Estado de autenticação alterado:', user ? 'LOGADO' : 'DESLOGADO')
       if (user) {
+        console.log('🔐 [AUTH] Usuário logado:', {
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified
+        })
         logger.debug('Estado de autenticação alterado - usuário logado', {
           component: 'AuthProvider',
           action: 'auth_state_changed',
           metadata: { userId: user.uid }
         })
       setUser(user)
+        console.log('🔐 [AUTH] Buscando dados do usuário no Firestore...')
         await fetchUserData(user.uid)
+        console.log('🔐 [AUTH] Dados do usuário carregados')
         } else {
+        console.log('🔐 [AUTH] Usuário deslogado, limpando estado...')
         logger.debug('Estado de autenticação alterado - usuário deslogado', {
           component: 'AuthProvider',
           action: 'auth_state_changed'
@@ -209,9 +235,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logger.setUser(null)
       }
         setLoading(false)
+        console.log('🔐 [AUTH] Loading finalizado, estado atualizado')
     })
 
     return () => {
+      console.log('🔐 [AUTH] Removendo listener de autenticação')
       logger.debug('Removendo listener de autenticação', {
         component: 'AuthProvider',
         action: 'auth_listener_cleanup'

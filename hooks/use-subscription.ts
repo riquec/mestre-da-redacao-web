@@ -13,19 +13,33 @@ export function useSubscription() {
 
   useEffect(() => {
     async function fetchSubscription() {
+      console.log('💳 [SUBSCRIPTION] Iniciando fetchSubscription...')
+      console.log('💳 [SUBSCRIPTION] User:', user ? { uid: user.uid, email: user.email } : 'NÃO AUTENTICADO')
+      
       if (!user) {
+        console.log('💳 [SUBSCRIPTION] Usuário não autenticado, abortando')
         setLoading(false)
         return
       }
 
       try {
+        console.log('💳 [SUBSCRIPTION] Buscando assinatura para userId:', user.uid)
         const subscriptionsRef = collection(db, 'subscriptions')
         const q = query(subscriptionsRef, where('userId', '==', user.uid))
         const querySnapshot = await getDocs(q)
+        
+        console.log('💳 [SUBSCRIPTION] Query concluída. Documentos encontrados:', querySnapshot.size)
+        console.log('💳 [SUBSCRIPTION] Query vazia?', querySnapshot.empty)
 
         if (!querySnapshot.empty) {
           const subscriptionDoc = querySnapshot.docs[0]
           let subscriptionData = { id: subscriptionDoc.id, ...subscriptionDoc.data() } as Subscription
+          console.log('💳 [SUBSCRIPTION] Assinatura encontrada:', {
+            id: subscriptionData.id,
+            type: subscriptionData.type,
+            status: subscriptionData.status,
+            tokens: subscriptionData.tokens
+          })
           
           // Verificar e fazer reset automático para plano Mestre
           if (subscriptionData.type === 'mestre') {
@@ -85,11 +99,18 @@ export function useSubscription() {
           }
           
           setSubscription(subscriptionData)
+          console.log('💳 [SUBSCRIPTION] Estado atualizado com assinatura')
+        } else {
+          console.warn('💳 [SUBSCRIPTION] Nenhuma assinatura encontrada para este usuário')
         }
-      } catch (err) {
+      } catch (err: any) {
+        console.error('❌ [SUBSCRIPTION] ERRO ao buscar assinatura:', err)
+        console.error('❌ [SUBSCRIPTION] Erro code:', err?.code)
+        console.error('❌ [SUBSCRIPTION] Erro message:', err?.message)
         setError(err as Error)
       } finally {
         setLoading(false)
+        console.log('💳 [SUBSCRIPTION] fetchSubscription finalizado')
       }
     }
 

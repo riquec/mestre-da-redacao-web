@@ -39,15 +39,39 @@ export default function Aulas() {
 
   useEffect(() => {
     async function fetchLessons() {
+      console.log('🎬 [AULAS] Iniciando fetchLessons...')
+      console.log('🎬 [AULAS] User:', user ? { uid: user.uid, email: user.email } : 'NÃO AUTENTICADO')
+      console.log('🎬 [AULAS] hasVideoAccess:', hasVideoAccess)
+      console.log('🎬 [AULAS] subscription:', subscription)
+      
       setLoading(true)
       try {
+        console.log('🎬 [AULAS] Criando query para lessons...')
         const q = query(collection(db, "lessons"), where("active", "==", true), orderBy("createdAt", "desc"))
+        
+        console.log('🎬 [AULAS] Executando getDocs...')
         const snap = await getDocs(q)
-        const lessonsArr = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        
+        console.log('🎬 [AULAS] getDocs concluído! Documentos encontrados:', snap.size)
+        console.log('🎬 [AULAS] Documentos vazios?', snap.empty)
+        
+        const lessonsArr = snap.docs.map(doc => {
+          const data = { id: doc.id, ...doc.data() }
+          console.log('🎬 [AULAS] Lesson encontrada:', {
+            id: data.id,
+            title: data.title,
+            active: data.active,
+            hasVideoUrl: !!data.videoUrl
+          })
+          return data
+        })
+        
+        console.log('🎬 [AULAS] Total de aulas processadas:', lessonsArr.length)
         setLessons(lessonsArr)
         
         // Só buscar progresso se o usuário tiver acesso
         if (user && hasVideoAccess) {
+          console.log('🎬 [AULAS] Buscando progresso do usuário...')
           const progressSnaps = await Promise.all(
             lessonsArr.map(lesson => getDoc(doc(db, "lessonProgress", `${user.uid}_${lesson.id}`)))
           )
@@ -55,13 +79,19 @@ export default function Aulas() {
           lessonsArr.forEach((lesson, idx) => {
             watchedObj[lesson.id] = progressSnaps[idx].exists() && progressSnaps[idx].data().watched
           })
+          console.log('🎬 [AULAS] Progresso carregado:', watchedObj)
           setWatchedMap(watchedObj)
         }
-      } catch (err) {
+      } catch (err: any) {
+        console.error('❌ [AULAS] ERRO ao buscar aulas:', err)
+        console.error('❌ [AULAS] Erro code:', err?.code)
+        console.error('❌ [AULAS] Erro message:', err?.message)
+        console.error('❌ [AULAS] Erro stack:', err?.stack)
         setLessons([])
         setWatchedMap({})
       } finally {
         setLoading(false)
+        console.log('🎬 [AULAS] fetchLessons finalizado')
       }
     }
     fetchLessons()

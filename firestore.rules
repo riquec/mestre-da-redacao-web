@@ -45,6 +45,42 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    match /lessons/{lessonId} {
+      // Qualquer usuário autenticado pode ler aulas
+      allow read: if request.auth != null;
+      // Apenas professores podem criar/editar/deletar aulas
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor';
+    }
+    
+    match /lessonProgress/{progressId} {
+      // Usuários podem ler apenas seu próprio progresso
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Usuários podem criar/atualizar apenas seu próprio progresso
+      allow write: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+    
+    match /materials/{materialId} {
+      // Qualquer usuário autenticado pode ler materiais
+      allow read: if request.auth != null;
+      // Apenas professores podem criar/editar/deletar materiais
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor';
+    }
+    
+    match /subscriptions/{subscriptionId} {
+      // Usuários podem ler apenas sua própria assinatura
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Apenas o próprio usuário ou professores podem atualizar assinatura
+      allow write: if request.auth != null && (
+        request.auth.uid == request.resource.data.userId ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'professor')
+      );
+    }
+    
     match /{document=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;

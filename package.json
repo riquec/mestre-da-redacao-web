@@ -11,6 +11,7 @@
     "firebase-build": "pnpm install && pnpm run build",
     "deploy": "firebase deploy",
     "test-firebase": "node scripts/test-firebase-config.js",
+    "add-indexes": "node scripts/add-firestore-indexes.js",
     "deploy-indexes": "node scripts/deploy-indexes.js",
     "configure-cors": "node scripts/configure-cors.js",
     "fix-cors": "node scripts/fix-cors-issue.js"

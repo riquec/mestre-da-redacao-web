@@ -32,34 +32,56 @@ export function useProfessorStudents() {
 
   // Buscar alunos com estatísticas
   const fetchStudents = async () => {
+    console.log('👥 [PROFESSOR ALUNOS] Iniciando fetchStudents...')
+    console.log('👥 [PROFESSOR ALUNOS] User professor:', user ? { uid: user.uid, email: user.email } : 'NÃO AUTENTICADO')
+    
     setLoading(true)
     try {
       // Buscar usuários estudantes
+      console.log('👥 [PROFESSOR ALUNOS] Buscando usuários com role=student...')
       const usersRef = collection(db, 'users')
       const usersQuery = query(usersRef, where('role', '==', 'student'), orderBy('createdAt', 'desc'))
       const usersSnap = await getDocs(usersQuery)
+      console.log('👥 [PROFESSOR ALUNOS] Usuários encontrados:', usersSnap.size)
       const users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any))
+      console.log('👥 [PROFESSOR ALUNOS] Usuários processados:', users.length)
 
       // Buscar assinaturas
+      console.log('👥 [PROFESSOR ALUNOS] Buscando assinaturas...')
       const subsRef = collection(db, 'subscriptions')
       const subsSnap = await getDocs(subsRef)
+      console.log('👥 [PROFESSOR ALUNOS] Assinaturas encontradas:', subsSnap.size)
       const subscriptions = subsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscription))
 
       // Buscar redações para estatísticas
+      console.log('👥 [PROFESSOR ALUNOS] Buscando redações...')
       const essaysRef = collection(db, 'essays')
       const essaysSnap = await getDocs(essaysRef)
+      console.log('👥 [PROFESSOR ALUNOS] Redações encontradas:', essaysSnap.size)
       const essays = essaysSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
       // Buscar progresso de aulas
+      console.log('👥 [PROFESSOR ALUNOS] Buscando progresso de aulas...')
       const progressRef = collection(db, 'lessonProgress')
       const progressSnap = await getDocs(progressRef)
+      console.log('👥 [PROFESSOR ALUNOS] Progresso encontrado:', progressSnap.size)
       const progress = progressSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
       // Montar dados completos dos alunos
-      const studentsData: StudentInfo[] = users.map(user => {
+      console.log('👥 [PROFESSOR ALUNOS] Montando dados dos alunos...')
+      const studentsData: StudentInfo[] = users.map((user, index) => {
         const subscription = subscriptions.find(sub => sub.userId === user.id && sub.status === 'active')
         const userEssays = essays.filter((essay: any) => essay.userId === user.id)
         const userProgress = progress.filter((prog: any) => prog.userId === user.id)
+
+        console.log(`👥 [PROFESSOR ALUNOS] Aluno ${index + 1}/${users.length}:`, {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          hasSubscription: !!subscription,
+          subscriptionType: subscription?.type || 'nenhuma',
+          essaysCount: userEssays.length
+        })
 
         const stats = {
           essaysSubmitted: userEssays.length,
@@ -84,10 +106,14 @@ export function useProfessorStudents() {
         }
       })
 
+      console.log('👥 [PROFESSOR ALUNOS] Total de alunos processados:', studentsData.length)
       setStudents(studentsData)
       updateStats(studentsData)
-    } catch (error) {
-      console.error('Erro ao buscar alunos:', error)
+    } catch (error: any) {
+      console.error('❌ [PROFESSOR ALUNOS] ERRO ao buscar alunos:', error)
+      console.error('❌ [PROFESSOR ALUNOS] Erro code:', error?.code)
+      console.error('❌ [PROFESSOR ALUNOS] Erro message:', error?.message)
+      console.error('❌ [PROFESSOR ALUNOS] Erro stack:', error?.stack)
       toast({
         title: "Erro ao carregar alunos",
         description: "Não foi possível carregar a lista de alunos",
@@ -95,6 +121,7 @@ export function useProfessorStudents() {
       })
     } finally {
       setLoading(false)
+      console.log('👥 [PROFESSOR ALUNOS] fetchStudents finalizado')
     }
   }
 
