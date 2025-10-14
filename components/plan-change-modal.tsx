@@ -32,7 +32,6 @@ interface PlanChangeModalProps {
       type: SubscriptionType
       tokens: {
         available: number
-        unlimited: boolean
       }
     } | null
   }
@@ -63,27 +62,27 @@ const PLAN_CONFIG = {
   },
   mestre: {
     name: 'Mestre',
-    description: '15 correções mensais + acesso completo',
+    description: '6 correções mensais + acesso completo',
     icon: Crown,
     color: 'bg-yellow-100 text-yellow-800',
-    defaultTokens: 15,
+    defaultTokens: 6,
     unlimited: false
   },
   private: {
     name: 'Privado',
-    description: 'Aluno particular com correções ilimitadas',
+    description: '6 correções mensais + acesso completo',
     icon: User,
     color: 'bg-purple-100 text-purple-800',
-    defaultTokens: 0,
-    unlimited: true
+    defaultTokens: 6,
+    unlimited: false
   },
   partner: {
     name: 'Parceiro',
-    description: 'Aluno de instituição parceira com correções ilimitadas',
+    description: '6 correções mensais + acesso completo',
     icon: Building,
     color: 'bg-green-100 text-green-800',
-    defaultTokens: 0,
-    unlimited: true
+    defaultTokens: 6,
+    unlimited: false
   }
 }
 
@@ -105,7 +104,6 @@ export function PlanChangeModal({
   const newPlanConfig = PLAN_CONFIG[selectedPlan]
   
   const totalTokens = newPlanConfig.defaultTokens + tokensToAdd
-  const isUnlimited = newPlanConfig.unlimited
 
   const handleConfirm = async () => {
     try {
@@ -163,10 +161,7 @@ export function PlanChangeModal({
                     </Badge>
                     {student.subscription?.tokens && (
                       <span className="text-sm text-gray-600">
-                        {student.subscription.tokens.unlimited 
-                          ? 'Ilimitado' 
-                          : `${student.subscription.tokens.available} tokens`
-                        }
+                                              {`${student.subscription.tokens.available} tokens`}
                       </span>
                     )}
                   </div>
@@ -215,9 +210,8 @@ export function PlanChangeModal({
               </div>
             </div>
 
-            {/* Configuração de Tokens (apenas para planos não ilimitados) */}
-            {!newPlanConfig.unlimited && (
-              <div className="space-y-4">
+            {/* Configuração de Tokens */}
+            <div className="space-y-4">
                 <Label className="text-base font-medium">Configuração de Tokens</Label>
                 <Card>
                   <CardContent className="pt-6">
@@ -254,7 +248,6 @@ export function PlanChangeModal({
                   </CardContent>
                 </Card>
               </div>
-            )}
 
             {/* Motivo da Mudança */}
             <div className="space-y-2">
@@ -289,7 +282,7 @@ export function PlanChangeModal({
                 <div className="flex items-center justify-between">
                   <span>Tokens disponíveis:</span>
                   <span className="font-medium">
-                    {isUnlimited ? 'Ilimitados' : `${totalTokens} tokens`}
+                    {`${totalTokens} tokens`}
                   </span>
                 </div>
               </CardContent>
@@ -343,7 +336,7 @@ export function PlanChangeModal({
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Tokens:</span>
                     <span className="font-medium">
-                      {isUnlimited ? 'Ilimitados' : `${totalTokens} tokens`}
+                      {`${totalTokens} tokens`}
                     </span>
                   </div>
                   {reason && (

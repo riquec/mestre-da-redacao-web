@@ -65,7 +65,7 @@ export function useProfessorStudents() {
           essaysSubmitted: userEssays.length,
           essaysCorrected: userEssays.filter((e: any) => e.status === 'done').length,
           lessonsWatched: userProgress.filter((p: any) => p.completed).length,
-          tokensUsed: subscription ? (subscription.tokens.unlimited ? 0 : 15 - subscription.tokens.available) : 0,
+          tokensUsed: subscription ? (6 - subscription.tokens.available) : 0,
           averageScore: userEssays.length > 0 ? 
             userEssays.reduce((acc: number, e: any) => acc + (e.correction?.score?.total || 0), 0) / userEssays.length : 0,
           lastActivity: user.lastLogin
@@ -130,25 +130,18 @@ export function useProfessorStudents() {
     try {
       // Calcular tokens baseado no plano
       let tokensAvailable = 0
-      let unlimited = false
 
       switch (newPlan) {
         case 'free':
           tokensAvailable = 0
-          unlimited = false
           break
         case 'avulsa':
           tokensAvailable = 1
-          unlimited = false
           break
         case 'mestre':
-          tokensAvailable = 15
-          unlimited = false
-          break
         case 'private':
         case 'partner':
-          tokensAvailable = 0
-          unlimited = true
+          tokensAvailable = 6
           break
       }
 
@@ -171,8 +164,7 @@ export function useProfessorStudents() {
         await updateDoc(subRef, {
           type: newPlan,
           tokens: {
-            available: tokensAvailable,
-            unlimited
+            available: tokensAvailable
           },
           updatedAt: serverTimestamp()
         })
@@ -183,8 +175,7 @@ export function useProfessorStudents() {
           type: newPlan,
           status: 'active' as const,
           tokens: {
-            available: tokensAvailable,
-            unlimited
+            available: tokensAvailable
           },
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -218,7 +209,7 @@ export function useProfessorStudents() {
                 userId: studentId,
                 type: newPlan,
                 status: 'active',
-                tokens: { available: tokensAvailable, unlimited },
+                tokens: { available: tokensAvailable },
                 createdAt: serverTimestamp() as any,
                 updatedAt: serverTimestamp() as any
               }

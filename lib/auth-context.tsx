@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let couponData: any = null
       let partnerId: string | null = null
       let subscriptionType: "free" | "private" | "partner" = "free"
-      let tokens = { available: 0, unlimited: false }
+      let tokens = { available: 0 }
 
       // Buscar cupom no Firestore se informado
       if (promoCode) {
@@ -71,11 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         couponData = couponSnap.data()
         if (couponData.type === "partner") {
           subscriptionType = "partner"
-          tokens = { available: 0, unlimited: true }
+          tokens = { available: 6 }
           partnerId = couponData.partnerId || null
         } else if (couponData.type === "private") {
           subscriptionType = "private"
-          tokens = { available: 0, unlimited: true }
+          tokens = { available: 6 }
         }
       }
       

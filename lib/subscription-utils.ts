@@ -12,8 +12,7 @@ export async function updateSubscriptionToPrivate(
     type: "private" as SubscriptionType,
     updatedAt: serverTimestamp(),
     tokens: {
-      available: 0,
-      unlimited: true
+      available: 6
     },
     privateInfo: {
       teacherId,
@@ -33,8 +32,7 @@ export async function updateSubscriptionToPartner(
     type: "partner" as SubscriptionType,
     updatedAt: serverTimestamp(),
     tokens: {
-      available: 0,
-      unlimited: true
+      available: 6
     },
     partnerInfo: {
       institutionId,
@@ -57,13 +55,11 @@ export async function addTokensToSubscription(
   
   const subscription = subscriptionDoc.data()
   
-  // Só adiciona tokens se não for unlimited
-  if (!subscription.tokens.unlimited) {
-    await updateDoc(subscriptionRef, {
-      "tokens.available": (subscription.tokens.available || 0) + amount,
-      updatedAt: serverTimestamp()
-    })
-  }
+  // Adicionar tokens
+  await updateDoc(subscriptionRef, {
+    "tokens.available": (subscription.tokens.available || 0) + amount,
+    updatedAt: serverTimestamp()
+  })
 }
 
 // Função para verificar se o usuário tem acesso a videoaulas
@@ -78,8 +74,17 @@ export async function canAccessLessons(userId: string): Promise<boolean> {
   const subscription = subscriptionDoc.data()
   const type = subscription.type as SubscriptionType
   
-  // Apenas planos mestre, private e partner têm acesso a videoaulas
-  return type === 'mestre' || type === 'private' || type === 'partner'
+  // Planos mestre, private e partner sempre têm acesso
+  if (type === 'mestre' || type === 'private' || type === 'partner') {
+    return true
+  }
+  
+  // Avulsa tem acesso se tiver token ativo
+  if (type === 'avulsa' && subscription.tokens && subscription.tokens.available > 0) {
+    return true
+  }
+  
+  return false
 }
 
 // Função para verificar se o usuário tem acesso a materiais didáticos
@@ -94,8 +99,17 @@ export async function canAccessMaterials(userId: string): Promise<boolean> {
   const subscription = subscriptionDoc.data()
   const type = subscription.type as SubscriptionType
   
-  // Apenas planos mestre, private e partner têm acesso a materiais
-  return type === 'mestre' || type === 'private' || type === 'partner'
+  // Planos mestre, private e partner sempre têm acesso
+  if (type === 'mestre' || type === 'private' || type === 'partner') {
+    return true
+  }
+  
+  // Avulsa tem acesso se tiver token ativo
+  if (type === 'avulsa' && subscription.tokens && subscription.tokens.available > 0) {
+    return true
+  }
+  
+  return false
 }
 
 // Função para verificar se o usuário pode enviar redações
@@ -115,13 +129,33 @@ export async function canSubmitEssay(userId: string): Promise<boolean> {
     return false
   }
   
-  // Se for unlimited (private/partner), sempre pode enviar
-  if (subscription.tokens.unlimited) {
+  // Se tiver tokens disponíveis, pode enviar
+  return (subscription.tokens.available || 0) > 0
+}
+
+// Função para verificar se o usuário tem acesso ao chat
+export async function canAccessChat(userId: string): Promise<boolean> {
+  const subscriptionRef = doc(db, "subscriptions", userId)
+  const subscriptionDoc = await getDoc(subscriptionRef)
+  
+  if (!subscriptionDoc.exists()) {
+    return false
+  }
+  
+  const subscription = subscriptionDoc.data()
+  const type = subscription.type as SubscriptionType
+  
+  // Planos mestre, private e partner sempre têm acesso
+  if (type === 'mestre' || type === 'private' || type === 'partner') {
     return true
   }
   
-  // Se tiver tokens disponíveis, pode enviar
-  return (subscription.tokens.available || 0) > 0
+  // Avulsa tem acesso se tiver token ativo
+  if (type === 'avulsa' && subscription.tokens && subscription.tokens.available > 0) {
+    return true
+  }
+  
+  return false
 }
 
 export async function useTokenForEssay(userId: string): Promise<void> {
@@ -133,11 +167,6 @@ export async function useTokenForEssay(userId: string): Promise<void> {
   }
   
   const subscription = subscriptionDoc.data()
-  
-  // Se for unlimited, não precisa decrementar
-  if (subscription.tokens.unlimited) {
-    return
-  }
   
   // Se não tiver tokens disponíveis, não pode enviar
   if ((subscription.tokens.available || 0) <= 0) {

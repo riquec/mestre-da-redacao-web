@@ -55,7 +55,6 @@ interface Subscription {
     used: number
   }
   tokens: {
-    unlimited: boolean
     available: number
   }
 }
@@ -74,7 +73,7 @@ const PLANS = {
   mestre: {
     name: "Plano Mestre",
     description: "Experiência completa",
-    corrections: 15
+    corrections: 6
   }
 }
 
@@ -89,13 +88,13 @@ function getPlanoInfo(type: string) {
   if (type === 'private') {
     return {
       name: 'Aluno Privado',
-      description: 'Acesso ilimitado por ser aluno particular.'
+      description: '6 correções mensais + acesso completo por ser aluno particular.'
     }
   }
   if (type === 'partner') {
     return {
       name: 'Aluno Parceiro',
-      description: 'Acesso ilimitado por parceria institucional.'
+      description: '6 correções mensais + acesso completo por parceria institucional.'
     }
   }
   return {
@@ -215,16 +214,14 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-2xl font-bold">
-                  {subscription?.tokens && (subscription.type === 'private' || subscription.type === 'partner' || subscription.tokens.unlimited)
-                    ? 'Correções ilimitadas'
-                    : subscription?.tokens
-                      ? (typeof subscription.tokens.available === 'number' ? subscription.tokens.available : 0)
-                      : '0'}
+                  {subscription?.tokens
+                    ? (typeof subscription.tokens.available === 'number' ? subscription.tokens.available : 0)
+                    : '0'}
                 </p>
                 <p className="text-xs text-gray-500">Neste mês</p>
               </div>
               <Progress 
-                value={subscription?.tokens && (subscription.type === 'private' || subscription.type === 'partner' || subscription.tokens.unlimited) ? 100 : (subscription?.tokens && subscription.tokens.available > 0 ? 100 : 0)} 
+                value={subscription?.tokens && subscription.tokens.available > 0 ? (subscription.tokens.available / 6) * 100 : 0} 
                 className="h-2" 
               />
             </div>

@@ -19,15 +19,15 @@ interface SubscriptionGuardProps {
 const FEATURE_INFO = {
   videoaulas: {
     title: 'Videoaulas Exclusivas',
-    description: 'Acesso às videoaulas é exclusivo para planos Mestre, Private e Partner',
+    description: 'Acesso às videoaulas para planos Mestre, Parceiro ou Avulso com token ativo',
     icon: Video,
-    plans: ['mestre', 'private', 'partner']
+    plans: ['mestre', 'private', 'partner']  // Avulso é tratado separadamente
   },
   materiais: {
     title: 'Material Didático',
-    description: 'Acesso ao material didático é exclusivo para planos Mestre, Private e Partner',
+    description: 'Acesso ao material didático para planos Mestre, Parceiro ou Avulso com token ativo',
     icon: Folder,
-    plans: ['mestre', 'private', 'partner']
+    plans: ['mestre', 'private', 'partner']  // Avulso é tratado separadamente
   },
   redacoes: {
     title: 'Envio de Redações',
@@ -43,9 +43,9 @@ const FEATURE_INFO = {
   },
   chat: {
     title: 'Chat com Professor',
-    description: 'Chat com professor disponível para planos Private e Partner',
+    description: 'Chat disponível para planos Mestre, Parceiro ou Avulso com token ativo',
     icon: MessageCircle,
-    plans: ['private', 'partner']
+    plans: ['mestre', 'private', 'partner']  // Avulso é tratado separadamente
   }
 }
 
@@ -75,7 +75,16 @@ export function SubscriptionGuard({
     }
 
     const featureInfo = FEATURE_INFO[feature]
-    const hasRequiredAccess = featureInfo.plans.includes(subscription.type as any)
+    let hasRequiredAccess = featureInfo.plans.includes(subscription.type as any)
+    
+    // Regra especial para AVULSA: tem acesso se tiver token ativo
+    if ((subscription.type as string) === 'avulsa' && subscription.tokens && subscription.tokens.available > 0) {
+      // Avulsa com token ativo tem acesso a tudo exceto propostas (que já tem acesso livre)
+      if (feature === 'videoaulas' || feature === 'materiais' || feature === 'chat') {
+        hasRequiredAccess = true
+      }
+    }
+    
     setHasAccess(hasRequiredAccess)
   }, [user, subscription, loading, feature, router])
 

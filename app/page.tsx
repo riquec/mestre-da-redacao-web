@@ -397,7 +397,7 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 flex-shrink-0" />
-                    <span className="text-blue-800 text-sm md:text-base">15 correções de redação por mês</span>
+                                            <span className="text-blue-800 text-sm md:text-base">6 correções de redação por mês</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-yellow-500 flex-shrink-0" />

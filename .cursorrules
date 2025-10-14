@@ -98,7 +98,7 @@ interface Subscription {
   status: 'active' | 'cancelled'
   tokens: {
     available: number
-    unlimited: boolean
+    // unlimited removido - todos os planos têm limite de 6 correções mensais
   }
   partnerInfo?: {
     institutionId: string
@@ -115,14 +115,13 @@ interface Subscription {
 ### Planos Disponíveis
 1. **Free (R$ 0,00)**: 0 correções, acesso apenas às propostas de redação
 2. **Avulsa (R$ 15,00)**: 1 correção, acesso às propostas de redação
-3. **Mestre (R$ 70,00/mês)**: 15 correções/mês, acesso completo (propostas, videoaulas, materiais)
-4. **Private**: Aluno particular de professor, correções ilimitadas
-5. **Partner**: Aluno de instituição parceira, correções ilimitadas
+3. **Mestre (R$ 70,00/mês)**: 6 correções/mês, acesso completo (propostas, videoaulas, materiais)
+4. **Private**: Aluno particular de professor, 6 correções mensais
+5. **Partner**: Aluno de instituição parceira, 6 correções mensais
 
 ### Lógica de Tokens
-- **Planos Pagos**: Tokens mensais finitos
-- **Private/Partner**: Tokens ilimitados (unlimited: true)
-- **Consumo**: 1 token por redação enviada
+- **Todos os Planos**: 6 tokens mensais máximo (exceto Free: 0 tokens, Avulso: 1 token)
+- **Consumo**: 1 token por redação enviada para todos os planos
 - **Renovação**: Automática todo mês (não implementado ainda)
 
 ## 📝 SISTEMA DE REDAÇÕES
@@ -285,7 +284,7 @@ interface Material {
 #### Regras de Negócio Implementadas
 - **Planos Disponíveis**: free, avulsa, mestre, private, partner
 - **Tokens Configuráveis**: Alunos avulsos podem receber tokens extras (0-50)
-- **Planos Ilimitados**: private e partner têm tokens ilimitados
+- **Todos os Planos**: Agora limitados a 6 correções mensais (private e partner também)
 - **Criação Automática**: Assinaturas são criadas automaticamente se não existirem
 - **Log de Auditoria**: Todas as mudanças são registradas com motivo e professor responsável
 - **Validações**: Interface previne mudanças desnecessárias e valida dados

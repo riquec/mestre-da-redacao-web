@@ -13,7 +13,7 @@ if (!fs.existsSync(corsFile)) {
 
 try {
   // Comando para configurar CORS no Firebase Storage
-  const bucketName = 'mestre-da-redacao.appspot.com';
+  const bucketName = 'mestre-da-redacao.firebasestorage.app';
   const command = `gsutil cors set cors.json gs://${bucketName}`;
   
   console.log('📋 Executando comando:', command);
@@ -39,5 +39,5 @@ try {
   console.log('1. Instale o Google Cloud SDK: https://cloud.google.com/sdk/docs/install');
   console.log('2. Faça login: gcloud auth login');
   console.log('3. Configure o projeto: gcloud config set project mestre-da-redacao');
-  console.log('4. Execute: gsutil cors set cors.json gs://mestre-da-redacao.appspot.com');
+  console.log('4. Execute: gsutil cors set cors.json gs://mestre-da-redacao.firebasestorage.app');
 } 

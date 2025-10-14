@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 import { useProfessorStudents } from "@/hooks/use-professor-students"
+import { deleteUserCompletely } from "@/lib/user-management"
 import { StudentCard } from "@/components/student-card"
 import { StudentsStats, PlanDistribution } from "@/components/students-stats"
 import { StudentsFilters } from "@/components/students-filters"
@@ -53,6 +54,25 @@ export default function ProfessorAlunos() {
       await changeStudentPlan(studentId, subscriptionId, newPlan, reason, tokensToAdd)
     } catch (error) {
       console.error('Erro ao alterar plano:', error)
+    }
+  }
+
+  const handleDeleteStudent = async (studentId: string, studentName: string) => {
+    try {
+      await deleteUserCompletely(studentId)
+      toast({
+        title: "Aluno removido",
+        description: `${studentName} foi removido permanentemente do sistema.`,
+      })
+      // Recarregar lista de alunos
+      await refreshStudents()
+    } catch (error) {
+      console.error('Erro ao deletar aluno:', error)
+      toast({
+        title: "Erro ao deletar",
+        description: "Não foi possível deletar o aluno. Tente novamente.",
+        variant: "destructive"
+      })
     }
   }
 
@@ -220,6 +240,7 @@ export default function ProfessorAlunos() {
                   key={student.id}
                   student={student}
                   onPlanChange={handlePlanChange}
+                  onDelete={handleDeleteStudent}
                   loading={loading}
                 />
               ))}

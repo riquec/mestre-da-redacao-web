@@ -13,6 +13,16 @@ import {
   DialogTitle, 
   DialogTrigger 
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -28,7 +38,9 @@ import {
   User,
   Building,
   Crown,
-  Settings
+  Settings,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react'
 import { StudentInfo, SubscriptionType } from '@/lib/types'
 import { PlanChangeModal } from './plan-change-modal'
@@ -36,6 +48,7 @@ import { PlanChangeModal } from './plan-change-modal'
 interface StudentCardProps {
   student: StudentInfo
   onPlanChange: (studentId: string, subscriptionId: string | null, newPlan: SubscriptionType, reason?: string, tokensToAdd?: number) => void
+  onDelete?: (studentId: string, studentName: string) => void
   loading?: boolean
 }
 
@@ -56,25 +69,26 @@ const PLAN_CONFIG = {
     name: 'Mestre',
     color: 'bg-yellow-100 text-yellow-800',
     icon: Crown,
-    description: '15 correções/mês'
+            description: '6 correções/mês'
   },
   private: {
     name: 'Privado',
     color: 'bg-purple-100 text-purple-800',
     icon: User,
-    description: 'Ilimitado'
+    description: '6 correções/mês'
   },
   partner: {
     name: 'Parceiro',
     color: 'bg-green-100 text-green-800',
     icon: Building,
-    description: 'Ilimitado'
+    description: '6 correções/mês'
   }
 }
 
-export function StudentCard({ student, onPlanChange, loading = false }: StudentCardProps) {
+export function StudentCard({ student, onPlanChange, onDelete, loading = false }: StudentCardProps) {
   const [showDetails, setShowDetails] = useState(false)
   const [showPlanChange, setShowPlanChange] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [changingPlan, setChangingPlan] = useState(false)
 
   const planConfig = student.subscription ? PLAN_CONFIG[student.subscription.type] : PLAN_CONFIG.free
@@ -145,6 +159,15 @@ export function StudentCard({ student, onPlanChange, loading = false }: StudentC
                 <Settings className="h-4 w-4 mr-2" />
                 Configurar Plano
               </DropdownMenuItem>
+              {onDelete && (
+                <DropdownMenuItem 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Deletar Aluno
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -159,10 +182,7 @@ export function StudentCard({ student, onPlanChange, loading = false }: StudentC
           </Badge>
           {student.subscription?.tokens && (
             <span className="text-sm text-gray-600">
-              {student.subscription.tokens.unlimited 
-                ? 'Ilimitado' 
-                : `${student.subscription.tokens.available} tokens`
-              }
+              {`${student.subscription.tokens.available} tokens`}
             </span>
           )}
         </div>
@@ -228,11 +248,7 @@ export function StudentCard({ student, onPlanChange, loading = false }: StudentC
                 <div className="space-y-1 text-sm">
                   <p><span className="text-gray-500">Tipo:</span> {planConfig.name}</p>
                   <p><span className="text-gray-500">Status:</span> {student.subscription?.status || 'Sem assinatura'}</p>
-                  <p><span className="text-gray-500">Tokens:</span> {
-                    student.subscription?.tokens.unlimited 
-                      ? 'Ilimitados' 
-                      : `${student.subscription?.tokens.available || 0} disponíveis`
-                  }</p>
+                  <p><span className="text-gray-500">Tokens:</span> {`${student.subscription?.tokens.available || 0} disponíveis`}</p>
                 </div>
               </div>
             </div>
@@ -294,6 +310,61 @@ export function StudentCard({ student, onPlanChange, loading = false }: StudentC
         onConfirm={handlePlanChange}
         loading={changingPlan}
       />
+
+      {/* Modal de Confirmação de Deleção */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                Você está prestes a deletar permanentemente o aluno:
+              </p>
+              <div className="bg-gray-50 p-3 rounded-md space-y-1">
+                <p className="font-medium">{student.name}</p>
+                <p className="text-sm text-gray-600">{student.email}</p>
+                <p className="text-sm">
+                  Plano: <Badge variant="outline" className="ml-1">
+                    {planConfig.name}
+                  </Badge>
+                </p>
+              </div>
+              <div className="bg-red-50 border border-red-200 p-3 rounded-md">
+                <p className="text-sm font-medium text-red-800 mb-1">
+                  ⚠️ Esta ação é irreversível!
+                </p>
+                <p className="text-sm text-red-700">
+                  Todos os dados do aluno serão permanentemente deletados, incluindo:
+                </p>
+                <ul className="text-sm text-red-700 mt-1 ml-4 list-disc">
+                  <li>Perfil e dados pessoais</li>
+                  <li>Assinatura e histórico</li>
+                  <li>Todas as redações enviadas</li>
+                  <li>Todas as correções recebidas</li>
+                  <li>Histórico de conversas no chat</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (onDelete) {
+                  onDelete(student.id, student.name)
+                }
+                setShowDeleteConfirm(false)
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Deletar Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 } 

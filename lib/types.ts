@@ -25,8 +25,8 @@ export interface Subscription {
   updatedAt: Timestamp
   tokens: {
     available: number
-    unlimited: boolean
   }
+  lastTokenReset?: Timestamp  // Data do último reset de tokens
   partnerInfo?: {
     institutionId: string
     institutionName: string

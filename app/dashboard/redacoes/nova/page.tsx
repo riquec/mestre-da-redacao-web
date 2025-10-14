@@ -184,8 +184,8 @@ export default function NovaRedacao() {
         description: "Você precisa ter um plano ativo para enviar redações. Por favor, assine um plano primeiro.",
         variant: "destructive"
       })
-              router.push("/dashboard/plano")
-      return
+              router.push("/dashboard/plano");
+      return;
     }
 
     if (!file) {
@@ -203,17 +203,13 @@ export default function NovaRedacao() {
       return
     }
 
-    // Só checa tokens se NÃO for private ou partner
-    if (subscription.type !== 'private' && subscription.type !== 'partner') {
-      if (
-        !subscription.tokens ||
-        subscription.tokens.unlimited !== true && (
-          typeof subscription.tokens.available !== 'number' || subscription.tokens.available <= 0
-        )
-      ) {
-        setShowNoCorrectionsModal(true)
-        return
-      }
+        // Verificar se tem tokens disponíveis
+    if (
+      !subscription.tokens ||
+      typeof subscription.tokens.available !== 'number' || subscription.tokens.available <= 0
+    ) {
+      setShowNoCorrectionsModal(true)
+      return
     }
 
     setLoading(true)
@@ -271,13 +267,25 @@ export default function NovaRedacao() {
       const essayRef = await addDoc(collection(db, "essays"), essayData)
       console.log('Documento criado com sucesso:', essayRef.id)
 
-      // Só atualiza tokens se NÃO for private ou partner
-      if (subscription.type !== 'private' && subscription.type !== 'partner') {
-        if (subscription.tokens && !subscription.tokens.unlimited) {
-          await updateDoc(doc(db, "subscriptions", subscription.id), {
-            "tokens.available": subscription.tokens.available - 1
-          })
-        }
+      // Atualizar tokens para todos os planos
+      if (subscription.tokens) {
+        const newTokenCount = subscription.tokens.available - 1
+        await updateDoc(doc(db, "subscriptions", subscription.id), {
+          "tokens.available": newTokenCount,
+          updatedAt: serverTimestamp()
+        });
+          
+        // Log do consumo de token
+        log.info('Token consumido para envio de redação', {
+          action: 'token_consumed',
+          metadata: {
+            subscriptionId: subscription.id,
+            essayId: essayRef.id,
+            previousTokens: subscription.tokens.available,
+            newTokens: newTokenCount,
+            planType: subscription.type
+          }
+        });
       }
 
       // Enviar notificação por e-mail para professores (assíncrono)
@@ -290,26 +298,26 @@ export default function NovaRedacao() {
           themeTitle: themes.find(t => t.id === selectedTheme)?.title || '',
           professorEmails
         })
-      })
+      });
 
       toast({
         title: "Redação enviada com sucesso!",
         description: "Sua redação foi enviada para correção.",
         variant: "default"
-      })
+      });
 
       // Redirecionar para a página de redações
-      router.push("/dashboard/redacoes")
+      router.push("/dashboard/redacoes");
     } catch (error) {
-      console.error("Erro detalhado ao enviar redação:", error)
+      console.error("Erro detalhado ao enviar redação:", error);
       
       // Se houve upload do arquivo mas falhou em criar o documento, deletar o arquivo
       if (uploadedFilePath) {
         try {
-          const fileRef = ref(storage, uploadedFilePath)
-          await deleteObject(fileRef)
+          const fileRef = ref(storage, uploadedFilePath);
+          await deleteObject(fileRef);
         } catch (deleteError) {
-          console.error("Erro ao deletar arquivo após falha:", deleteError)
+          console.error("Erro ao deletar arquivo após falha:", deleteError);
         }
       }
 
@@ -317,10 +325,10 @@ export default function NovaRedacao() {
         title: "Erro ao enviar redação",
         description: "Ocorreu um erro ao enviar sua redação. Por favor, tente novamente mais tarde.",
         variant: "destructive"
-      })
-      setError("Erro ao enviar redação. Tente novamente mais tarde.")
+      });
+      setError("Erro ao enviar redação. Tente novamente mais tarde.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
